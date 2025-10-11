@@ -1,0 +1,143 @@
+{
+  "dashboard": {
+    "title": "LLM Monitoring Overview",
+    "tags": ["llm", "monitoring", "ai"],
+    "timezone": "browser",
+    "schemaVersion": 38,
+    "version": 1,
+    "refresh": "30s",
+    "panels": [
+      {
+        "id": 1,
+        "title": "Total Events (Last 24h)",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+        "targets": [
+          {
+            "rawSql": "SELECT COUNT(*) as value FROM metric_events WHERE timestamp > NOW() - INTERVAL '24 hours'",
+            "format": "table"
+          }
+        ]
+      },
+      {
+        "id": 2,
+        "title": "Text Characters Processed (Last 24h)",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 6, "y": 0 },
+        "targets": [
+          {
+            "rawSql": "SELECT SUM(text_char_count) as value FROM metric_events WHERE timestamp > NOW() - INTERVAL '24 hours' AND text_char_count IS NOT NULL",
+            "format": "table"
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Images Processed (Last 24h)",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+        "targets": [
+          {
+            "rawSql": "SELECT SUM(image_count) as value FROM metric_events WHERE timestamp > NOW() - INTERVAL '24 hours' AND image_count IS NOT NULL",
+            "format": "table"
+          }
+        ]
+      },
+      {
+        "id": 4,
+        "title": "Error Rate",
+        "type": "stat",
+        "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+        "targets": [
+          {
+            "rawSql": "SELECT ROUND(100.0 * COUNT(CASE WHEN error IS NOT NULL THEN 1 END) / COUNT(*), 2) as value FROM metric_events WHERE timestamp > NOW() - INTERVAL '24 hours'",
+            "format": "table"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "percent"
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Events Over Time",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 24, "x": 0, "y": 4 },
+        "targets": [
+          {
+            "rawSql": "SELECT timestamp as time, COUNT(*) as value FROM metric_events WHERE timestamp > NOW() - INTERVAL '24 hours' GROUP BY time_bucket('1 minute', timestamp), timestamp ORDER BY timestamp",
+            "format": "time_series"
+          }
+        ]
+      },
+      {
+        "id": 6,
+        "title": "Text Processing by Operation",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+        "targets": [
+          {
+            "rawSql": "SELECT timestamp as time, operation_name, SUM(text_char_count) as value FROM metric_events WHERE timestamp > NOW() - INTERVAL '6 hours' AND text_char_count IS NOT NULL GROUP BY timestamp, operation_name ORDER BY timestamp",
+            "format": "time_series"
+          }
+        ]
+      },
+      {
+        "id": 7,
+        "title": "Duration by Operation",
+        "type": "timeseries",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+        "targets": [
+          {
+            "rawSql": "SELECT timestamp as time, operation_name, AVG(duration_ms) as value FROM metric_events WHERE timestamp > NOW() - INTERVAL '6 hours' AND duration_ms IS NOT NULL GROUP BY timestamp, operation_name ORDER BY timestamp",
+            "format": "time_series"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "unit": "ms"
+          }
+        }
+      },
+      {
+        "id": 8,
+        "title": "Top 10 Sessions by Text Volume",
+        "type": "table",
+        "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+        "targets": [
+          {
+            "rawSql": "SELECT session_id, COUNT(*) as operations, SUM(text_char_count) as total_chars, SUM(text_word_count) as total_words, AVG(duration_ms) as avg_duration_ms FROM metric_events WHERE timestamp > NOW() - INTERVAL '24 hours' GROUP BY session_id ORDER BY total_chars DESC LIMIT 10",
+            "format": "table"
+          }
+        ]
+      },
+      {
+        "id": 9,
+        "title": "Recent Errors",
+        "type": "table",
+        "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+        "targets": [
+          {
+            "rawSql": "SELECT timestamp, session_id, operation_name, error_type, error FROM metric_events WHERE error IS NOT NULL ORDER BY timestamp DESC LIMIT 20",
+            "format": "table"
+          }
+        ]
+      },
+      {
+        "id": 10,
+        "title": "Hierarchical Trace View (Latest Session)",
+        "type": "table",
+        "gridPos": { "h": 10, "w": 24, "x": 0, "y": 28 },
+        "targets": [
+          {
+            "rawSql": "WITH latest_session AS (SELECT session_id FROM metric_events ORDER BY timestamp DESC LIMIT 1) SELECT e.timestamp, e.span_id, e.parent_span_id, e.operation_name, e.operation_type, e.duration_ms, e.text_char_count, e.image_count FROM metric_events e JOIN latest_session ls ON e.session_id = ls.session_id ORDER BY e.timestamp",
+            "format": "table"
+          }
+        ]
+      }
+    ]
+  },
+  "overwrite": true
+}
