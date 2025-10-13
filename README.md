@@ -1,9 +1,15 @@
-# LLMOps Monitoring
+# llamonitor-async 🦙📊
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
+[![PyPI](https://img.shields.io/pypi/v/llamonitor-async.svg)](https://pypi.org/project/llamonitor-async/)
+[![Downloads](https://static.pepy.tech/badge/llamonitor-async)](https://pepy.tech/project/llamonitor-async)
+[![Downloads/Month](https://static.pepy.tech/badge/llamonitor-async/month)](https://pepy.tech/project/llamonitor-async)
+[![Downloads/Week](https://static.pepy.tech/badge/llamonitor-async/week)](https://pepy.tech/project/llamonitor-async)
 
-An **extensible, async-first monitoring framework** for LLM applications. Measures text and image usage with pluggable storage backends and automatic hierarchical tracking.
+**Lightweight async monitoring for LLM applications** - capacity-based tracking with pluggable storage.
+
+A modern alternative to Langfuse/LangSmith focusing on **text/image capacity measurement** (not tokens), async-first architecture, and maximum extensibility.
 
 ## Design Philosophy: "Leave Space for Air Conditioning"
 
@@ -25,19 +31,19 @@ Every component has clear extension points for future enhancements. Whether you 
 
 ```bash
 # Basic installation
-pip install llmops-monitoring
+pip install llamonitor-async
 
 # With storage backends
-pip install llmops-monitoring[parquet]    # For local Parquet files
-pip install llmops-monitoring[postgres]   # For PostgreSQL
-pip install llmops-monitoring[all]        # Everything
+pip install llamonitor-async[parquet]    # For local Parquet files
+pip install llamonitor-async[postgres]   # For PostgreSQL
+pip install llamonitor-async[all]        # Everything
 ```
 
 ### Basic Usage
 
 ```python
 import asyncio
-from llmops_monitoring import monitor_llm, initialize_monitoring, MonitorConfig
+from llamonitor import monitor_llm, initialize_monitoring, MonitorConfig
 
 @monitor_llm(
     operation_name="generate_text",
@@ -271,6 +277,22 @@ Replace the async queue with Kafka, Redis, etc. by modifying `MonitoringWriter`.
 - **Buffering**: Handles bursts without data loss
 - **Graceful shutdown**: Flushes all pending events
 
+## Download Statistics
+
+llamonitor-async includes comprehensive download tracking:
+
+- **Real-time badges** showing current download counts (see badges above)
+- **Automated collection** via GitHub Actions (daily)
+- **Manual analysis tools** with Python scripts
+
+See [DOWNLOAD_TRACKING.md](DOWNLOAD_TRACKING.md) for full documentation.
+
+Quick stats check:
+```bash
+pip install pypistats pandas
+python scripts/fetch_download_stats.py
+```
+
 ## Development
 
 ```bash
@@ -333,9 +355,9 @@ This project synthesizes ideas from:
 If you use this in research, please cite:
 
 ```bibtex
-@software{llmops_monitoring,
-  title = {LLMOps Monitoring: Extensible Async Framework for LLM Observability},
-  author = {Your Name},
+@software{llamonitor_async,
+  title = {llamonitor-async: Lightweight Async Monitoring for LLM Applications},
+  author = {Guy Bass},
   year = {2025},
   url = {https://github.com/guybass/LLMOps_monitoring_async-}
 }

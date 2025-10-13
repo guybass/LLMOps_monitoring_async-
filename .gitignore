@@ -1,9 +1,13 @@
-# Python
+# ============================================================================
+# Python Build and Distribution
+# ============================================================================
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 .Python
+
+# Distribution / packaging
 build/
 develop-eggs/
 dist/
@@ -16,63 +20,344 @@ parts/
 sdist/
 var/
 wheels/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
+pip-log.txt
+pip-delete-this-directory.txt
 
-# Virtual environments
+# PyInstaller
+*.manifest
+*.spec
+
+# ============================================================================
+# Virtual Environments
+# ============================================================================
 venv/
 env/
 ENV/
-.venv
+.venv/
+.env.venv/
+env.bak/
+venv.bak/
+pyvenv.cfg
 
-# IDEs
+# Virtualenv
+.Python
+
+# pipenv
+Pipfile.lock
+
+# poetry
+poetry.lock
+
+# pdm
+.pdm.toml
+__pypackages__/
+
+# ============================================================================
+# IDEs and Editors
+# ============================================================================
+
+# VSCode
 .vscode/
+.history/
+*.code-workspace
+
+# PyCharm / IntelliJ
 .idea/
+*.iml
+*.ipr
+*.iws
+.idea_modules/
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
 *.swp
 *.swo
 *~
-.DS_Store
+.vim/
+.netrwhist
 
-# Testing
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+.\#*
+
+# Spyder
+.spyderproject
+.spyproject
+
+# Rope
+.ropeproject
+
+# ============================================================================
+# Operating System Files
+# ============================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+.AppleDB
+.AppleDesktop
+Network Trash Folder
+Temporary Items
+.apdisk
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+*.stackdump
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msix
+*.msm
+*.msp
+*.lnk
+
+# Linux
+.directory
+.Trash-*
+.nfs*
+
+# ============================================================================
+# Testing and Coverage
+# ============================================================================
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
 .tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.cache
+nosetests.xml
+test-results/
+junit.xml
 
-# Monitoring data
-monitoring_data/
-*_monitoring_data/
-dev_monitoring_data/
-simple_monitoring_data/
-agentic_monitoring_data/
-custom_collector_data/
-*.parquet
-
-# Docker
-docker-compose.override.yml
-
-# Environment
-.env
-.env.local
-
-# Logs
-*.log
-
-# Documentation build
-docs/_build/
-site/
+# ============================================================================
+# Type Checking and Linting
+# ============================================================================
 
 # MyPy
 .mypy_cache/
 .dmypy.json
 dmypy.json
 
-# Jupyter
-.ipynb_checkpoints
+# Pyright
+.pyright/
+pyrightconfig.json
 
-# Database
+# Ruff
+.ruff_cache/
+
+# Pylint
+pylint-report.txt
+
+# Pytype
+.pytype/
+
+# Pyre
+.pyre/
+
+# ============================================================================
+# Security and Secrets
+# ============================================================================
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+.env.development
+.env.production
+.env.test
+!.env.example
+!.env.template
+
+# Secrets and credentials
+*.pem
+*.key
+*.cert
+*.crt
+secrets/
+credentials/
+.secrets/
+*.secret
+
+# API keys
+api_keys.txt
+.api_keys
+
+# ============================================================================
+# Database Files
+# ============================================================================
 *.db
+*.sqlite
 *.sqlite3
+*.db-journal
+*.db-shm
+*.db-wal
 
-compass_artifact_wf-72e7c58a-746c-4853-84b9-1312f7293f93_text_markdown.md
+# PostgreSQL
+*.pgdata
+pgdata/
+
+# ============================================================================
+# Application-Specific: Monitoring Data
+# ============================================================================
+monitoring_data/
+*_monitoring_data/
+dev_monitoring_data/
+simple_monitoring_data/
+agentic_monitoring_data/
+custom_collector_data/
+test_monitoring_data/
+*.parquet
+
+# Download statistics (keep structure, ignore data files)
+stats/*.json
+stats/*.csv
+!stats/README.md
+
+# ============================================================================
+# Docker
+# ============================================================================
+docker-compose.override.yml
+.dockerignore.bak
+docker/data/
+docker/logs/
+
+# ============================================================================
+# Logs
+# ============================================================================
+*.log
+logs/
+log/
+*.log.*
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ============================================================================
+# Documentation
+# ============================================================================
+docs/_build/
+docs/.doctrees/
+site/
+_build/
+.doctrees/
+
+# Sphinx
+docs/_static/
+docs/_templates/
+
+# MkDocs
+.mkdocs_cache/
+
+# ============================================================================
+# Jupyter Notebook
+# ============================================================================
+.ipynb_checkpoints
+*.ipynb_checkpoints/
+*/.ipynb_checkpoints/*
+
+# Jupyter Book
+_build/
+.jupyter_cache/
+
+# ============================================================================
+# Profiling and Performance
+# ============================================================================
+*.prof
+*.lprof
+*.pyprof
+.prof/
+profile_default/
+
+# cProfile
+*.pstats
+
+# ============================================================================
+# CI/CD
+# ============================================================================
+.github/workflows/.secrets
+.gitlab-ci-local/
+
+# ============================================================================
+# Temporary Files
+# ============================================================================
+tmp/
+temp/
+*.tmp
+*.bak
+*.swp
+.~lock.*
+
+# ============================================================================
+# Package Manager Files
+# ============================================================================
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# ============================================================================
+# Miscellaneous
+# ============================================================================
+
+# Celery
+celerybeat-schedule
+celerybeat.pid
+
+# SageMath
+*.sage.py
+
+# Spyder project settings
+.spyderproject
+.spyproject
+
+# Mr Developer
+.mr.developer.cfg
+.project
+.pydevproject
+
+# mkdocs documentation
+/site
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Archive files (in root)
+/*.zip
+/*.tar
+/*.tar.gz
+/*.tgz
+/*.rar
+/*.7z

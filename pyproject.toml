@@ -3,9 +3,9 @@ requires = ["setuptools>=65.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "llmops-monitoring"
+name = "llamonitor-async"
 version = "0.1.0"
-description = "Async monitoring framework for LLM applications with pluggable storage backends"
+description = "Lightweight async monitoring for LLM applications - capacity-based tracking with pluggable storage"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "Apache-2.0"}
@@ -44,7 +44,7 @@ mysql = [
     "sqlalchemy>=2.0.0",
 ]
 all = [
-    "llmops-monitoring[parquet,postgres,mysql]",
+    "llamonitor-async[parquet,postgres,mysql]",
 ]
 dev = [
     "pytest>=7.0.0",
