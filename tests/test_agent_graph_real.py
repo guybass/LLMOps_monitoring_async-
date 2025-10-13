@@ -14,8 +14,16 @@ Run with: python test_agent_graph_real.py
 import asyncio
 import os
 import sys
+import logging
 from pathlib import Path
 from dotenv import load_dotenv
+
+# Configure logging for test script
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 # Load environment variables
 load_dotenv()
@@ -33,12 +41,12 @@ try:
     from openai import AsyncOpenAI
     client = AsyncOpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 except ImportError:
-    print("ERROR: OpenAI not installed. Run: pip install openai")
+    logger.error("OpenAI not installed. Run: pip install openai")
     sys.exit(1)
 
 if not os.getenv("OPENAI_API_KEY"):
-    print("ERROR: OPENAI_API_KEY not found in .env file")
-    print("Please add your OpenAI API key to .env")
+    logger.error("OPENAI_API_KEY not found in .env file")
+    logger.info("Please add your OpenAI API key to .env")
     sys.exit(1)
 
 
@@ -71,7 +79,7 @@ async def router_agent(user_query: str) -> dict:
     )
 
     result_text = response.choices[0].message.content
-    print(f"  [Router] Output: {len(result_text)} chars, {len(result_text.split())} words")
+    logger.debug(f"[Router] Output: {len(result_text)} chars, {len(result_text.split())} words")
 
     return {"text": result_text, "intent": "research"}
 
@@ -100,7 +108,7 @@ async def researcher_agent(intent: str, query: str) -> dict:
     )
 
     result_text = response.choices[0].message.content
-    print(f"  [Researcher] Output: {len(result_text)} chars, {len(result_text.split())} words")
+    logger.debug(f"[Researcher] Output: {len(result_text)} chars, {len(result_text.split())} words")
 
     return {"text": result_text}
 
@@ -129,7 +137,7 @@ async def analyzer_agent(research_data: str) -> dict:
     )
 
     result_text = response.choices[0].message.content
-    print(f"  [Analyzer] Output: {len(result_text)} chars, {len(result_text.split())} words")
+    logger.debug(f"[Analyzer] Output: {len(result_text)} chars, {len(result_text.split())} words")
 
     return {"text": result_text}
 
@@ -158,7 +166,7 @@ async def synthesizer_agent(analysis: str, original_query: str) -> dict:
     )
 
     result_text = response.choices[0].message.content
-    print(f"  [Synthesizer] Output: {len(result_text)} chars, {len(result_text.split())} words")
+    logger.debug(f"[Synthesizer] Output: {len(result_text)} chars, {len(result_text.split())} words")
 
     return {"text": result_text}
 
@@ -232,7 +240,7 @@ async def run_graph_tests():
         )
     )
     writer = await initialize_monitoring(config)
-    print("✓ Monitoring initialized")
+    logger.info("✓ Monitoring initialized")
     print()
 
     # Test queries
@@ -255,21 +263,21 @@ async def run_graph_tests():
                     print(f"  {result[:200]}...")
                     print()
                 except Exception as e:
-                    print(f"ERROR: {e}")
+                    logger.error(f"Query processing failed: {e}")
                     print()
 
     # Flush events
-    print("Flushing events to storage...")
+    logger.info("Flushing events to storage...")
     await asyncio.sleep(3)
     await writer.stop()
-    print("✓ All events written")
+    logger.info("✓ All events written")
     print()
 
     # Summary
     output_path = Path(config.storage.output_dir)
     if output_path.exists():
         parquet_files = list(output_path.rglob("*.parquet"))
-        print(f"✓ Created {len(parquet_files)} Parquet file(s) in {output_path}")
+        logger.info(f"✓ Created {len(parquet_files)} Parquet file(s) in {output_path}")
         print()
 
     print("=" * 70)
@@ -291,8 +299,8 @@ if __name__ == "__main__":
     try:
         asyncio.run(run_graph_tests())
     except KeyboardInterrupt:
-        print("\n\nTest interrupted by user")
+        logger.warning("\n\nTest interrupted by user")
     except Exception as e:
-        print(f"\n\nError: {e}")
+        logger.error(f"\n\nError: {e}")
         import traceback
         traceback.print_exc()

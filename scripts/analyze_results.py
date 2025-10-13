@@ -12,14 +12,22 @@ Run with: python analyze_results.py [data_directory]
 
 import sys
 import json
+import logging
 from pathlib import Path
 from datetime import datetime
 from collections import defaultdict
 
+# Configure logging for script
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s: %(message)s"
+)
+logger = logging.getLogger(__name__)
+
 try:
     import pandas as pd
 except ImportError:
-    print("ERROR: pandas not installed. Run: pip install pandas pyarrow")
+    logger.error("pandas not installed. Run: pip install pandas pyarrow")
     sys.exit(1)
 
 
@@ -28,22 +36,22 @@ def load_monitoring_data(data_dir: str = "./test_monitoring_data") -> pd.DataFra
     data_path = Path(data_dir)
 
     if not data_path.exists():
-        print(f"ERROR: Directory not found: {data_path}")
-        print("Run a test first to generate data:")
-        print("  python test_basic_monitoring.py")
+        logger.error(f"Directory not found: {data_path}")
+        logger.info("Run a test first to generate data:")
+        logger.info("  python test_basic_monitoring.py")
         sys.exit(1)
 
     parquet_files = list(data_path.rglob("*.parquet"))
 
     if not parquet_files:
-        print(f"ERROR: No Parquet files found in {data_path}")
+        logger.error(f"No Parquet files found in {data_path}")
         sys.exit(1)
 
-    print(f"Loading {len(parquet_files)} Parquet file(s)...")
+    logger.info(f"Loading {len(parquet_files)} Parquet file(s)...")
     dfs = [pd.read_parquet(f) for f in parquet_files]
     df = pd.concat(dfs, ignore_index=True)
 
-    print(f"✓ Loaded {len(df)} events\n")
+    logger.info(f"✓ Loaded {len(df)} events\n")
     return df
 
 
@@ -274,8 +282,8 @@ if __name__ == "__main__":
     try:
         main()
     except KeyboardInterrupt:
-        print("\n\nAnalysis interrupted by user")
+        logger.warning("\n\nAnalysis interrupted by user")
     except Exception as e:
-        print(f"\n\nError: {e}")
+        logger.error(f"\n\nError: {e}")
         import traceback
         traceback.print_exc()

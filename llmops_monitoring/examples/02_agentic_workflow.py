@@ -9,6 +9,10 @@ import asyncio
 from llmops_monitoring import monitor_llm, initialize_monitoring, MonitorConfig
 from llmops_monitoring.instrumentation.context import monitoring_session, monitoring_trace
 from llmops_monitoring.schema.config import StorageConfig
+from llmops_monitoring.utils.logging_config import get_logger
+
+# Configure logger
+logger = get_logger(__name__)
 
 
 class LLMResponse:
@@ -62,19 +66,19 @@ async def run_agent_workflow(user_query: str, session_id: str) -> LLMResponse:
     Orchestrator that coordinates multiple agents.
     All nested calls will be tracked hierarchically.
     """
-    print(f"\nProcessing query: {user_query}")
+    logger.info(f"Processing query: {user_query}")
 
     # Step 1: Classify intent
     intent_result = await classify_intent(user_query)
-    print(f"  - Intent classified: {intent_result.text[:30]}...")
+    logger.debug(f"Intent classified: {intent_result.text[:30]}...")
 
     # Step 2: Search knowledge base
     knowledge = await search_knowledge_base(intent_result.text)
-    print(f"  - Knowledge retrieved: {len(knowledge.text)} chars")
+    logger.debug(f"Knowledge retrieved: {len(knowledge.text)} chars")
 
     # Step 3: Generate response
     final_response = await generate_response(knowledge.text)
-    print(f"  - Response generated: {len(final_response.text)} chars")
+    logger.debug(f"Response generated: {len(final_response.text)} chars")
 
     return final_response
 
@@ -86,8 +90,8 @@ async def main():
 
     writer = await initialize_monitoring(config)
 
-    print("Running agentic workflow example...")
-    print("This demonstrates hierarchical span tracking.\n")
+    logger.info("Running agentic workflow example...")
+    logger.info("This demonstrates hierarchical span tracking.\n")
 
     # Simulate multiple user sessions
     for session_num in range(3):
@@ -106,12 +110,12 @@ async def main():
     await asyncio.sleep(3)
     await writer.stop()
 
-    print("\nDone! Check ./agentic_monitoring_data for results.")
-    print("\nThe Parquet files contain hierarchical data:")
-    print("  - session_id groups all operations in a session")
-    print("  - trace_id groups operations in a conversation")
-    print("  - parent_span_id links child operations to parents")
-    print("\nYou can reconstruct the full call hierarchy from this data!")
+    logger.info("\nDone! Check ./agentic_monitoring_data for results.")
+    logger.info("\nThe Parquet files contain hierarchical data:")
+    logger.info("  - session_id groups all operations in a session")
+    logger.info("  - trace_id groups operations in a conversation")
+    logger.info("  - parent_span_id links child operations to parents")
+    logger.info("\nYou can reconstruct the full call hierarchy from this data!")
 
 
 if __name__ == "__main__":

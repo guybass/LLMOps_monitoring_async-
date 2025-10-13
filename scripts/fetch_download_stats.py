@@ -16,21 +16,29 @@ Requirements:
 
 import argparse
 import json
+import logging
 import sys
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Any, Optional
 
+# Configure logging for this script
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(levelname)s: %(message)s"
+)
+logger = logging.getLogger(__name__)
+
 try:
     import pypistats
 except ImportError:
-    print("Error: pypistats not installed. Run: pip install pypistats")
+    logger.error("pypistats not installed. Run: pip install pypistats")
     sys.exit(1)
 
 try:
     import pandas as pd
 except ImportError:
-    print("Warning: pandas not installed. CSV export will be limited.")
+    logger.warning("pandas not installed. CSV export will be limited.")
     pd = None
 
 
@@ -57,11 +65,11 @@ class DownloadStatsCollector:
             Dictionary with download statistics or None on error
         """
         try:
-            print(f"Fetching {period} statistics for {self.package_name}...")
+            logger.info(f"Fetching {period} statistics for {self.package_name}...")
             data = pypistats.overall(self.package_name, period=period, format="json")
             return json.loads(data) if isinstance(data, str) else data
         except Exception as e:
-            print(f"Error fetching overall stats: {e}")
+            logger.error(f"Error fetching overall stats: {e}")
             return None
 
     def fetch_recent_stats(self, days: int = 30) -> Optional[Dict[str, Any]]:
@@ -75,7 +83,7 @@ class DownloadStatsCollector:
             Dictionary with download statistics or None on error
         """
         try:
-            print(f"Fetching last {days} days of statistics...")
+            logger.info(f"Fetching last {days} days of statistics...")
             data = pypistats.recent(self.package_name, period="day", format="json")
             result = json.loads(data) if isinstance(data, str) else data
 
@@ -89,27 +97,27 @@ class DownloadStatsCollector:
 
             return result
         except Exception as e:
-            print(f"Error fetching recent stats: {e}")
+            logger.error(f"Error fetching recent stats: {e}")
             return None
 
     def fetch_python_versions(self) -> Optional[Dict[str, Any]]:
         """Fetch download statistics by Python version."""
         try:
-            print("Fetching Python version statistics...")
+            logger.info("Fetching Python version statistics...")
             data = pypistats.python_major(self.package_name, format="json")
             return json.loads(data) if isinstance(data, str) else data
         except Exception as e:
-            print(f"Error fetching Python version stats: {e}")
+            logger.error(f"Error fetching Python version stats: {e}")
             return None
 
     def fetch_system_stats(self) -> Optional[Dict[str, Any]]:
         """Fetch download statistics by operating system."""
         try:
-            print("Fetching operating system statistics...")
+            logger.info("Fetching operating system statistics...")
             data = pypistats.system(self.package_name, format="json")
             return json.loads(data) if isinstance(data, str) else data
         except Exception as e:
-            print(f"Error fetching system stats: {e}")
+            logger.error(f"Error fetching system stats: {e}")
             return None
 
     def calculate_summary(self, stats: Dict[str, Any]) -> Dict[str, Any]:
@@ -164,14 +172,14 @@ class DownloadStatsCollector:
         json_path = self.output_dir / f"downloads_{date_str}.json"
         with open(json_path, "w") as f:
             json.dump(stats, f, indent=2)
-        print(f"✓ Saved full stats to {json_path}")
+        logger.info(f"Saved full stats to {json_path}")
 
         # Save summary JSON
         summary = self.calculate_summary(stats)
         summary_path = self.output_dir / "download_summary.json"
         with open(summary_path, "w") as f:
             json.dump(summary, f, indent=2)
-        print(f"✓ Saved summary to {summary_path}")
+        logger.info(f"Saved summary to {summary_path}")
 
         # Save CSV if pandas available
         if pd and stats.get("recent") and "data" in stats["recent"]:
@@ -179,9 +187,9 @@ class DownloadStatsCollector:
                 df = pd.DataFrame(stats["recent"]["data"])
                 csv_path = self.output_dir / f"downloads_{date_str}.csv"
                 df.to_csv(csv_path, index=False)
-                print(f"✓ Saved CSV to {csv_path}")
+                logger.info(f"Saved CSV to {csv_path}")
             except Exception as e:
-                print(f"Warning: Could not save CSV: {e}")
+                logger.warning(f"Could not save CSV: {e}")
 
     def display_summary(self, summary: Dict[str, Any]):
         """Display summary statistics in the terminal."""
@@ -248,7 +256,7 @@ def main():
 
     # Validate days
     if args.days < 1 or args.days > 180:
-        print("Error: days must be between 1 and 180")
+        logger.error("days must be between 1 and 180")
         sys.exit(1)
 
     # Collect statistics
@@ -267,7 +275,7 @@ def main():
         summary = collector.calculate_summary(stats)
         collector.display_summary(summary)
 
-    print("✅ Download statistics collection complete!")
+    logger.info("Download statistics collection complete!")
 
 
 if __name__ == "__main__":
