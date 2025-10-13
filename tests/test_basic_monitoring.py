@@ -7,7 +7,15 @@ Run with: python test_basic_monitoring.py
 
 import asyncio
 import sys
+import logging
 from pathlib import Path
+
+# Configure logging for test script
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger(__name__)
 
 # Add project to path
 sys.path.insert(0, str(Path(__file__).parent))
@@ -145,17 +153,17 @@ async def run_tests():
     print()
 
     # Wait for events to flush
-    print("Flushing events to storage...")
+    logger.info("Flushing events to storage...")
     await asyncio.sleep(2)
     await writer.stop()
-    print("✓ All events written to Parquet files")
+    logger.info("✓ All events written to Parquet files")
     print()
 
     # Verify files created
     output_path = Path(config.storage.output_dir)
     if output_path.exists():
         parquet_files = list(output_path.rglob("*.parquet"))
-        print(f"✓ Created {len(parquet_files)} Parquet file(s)")
+        logger.info(f"✓ Created {len(parquet_files)} Parquet file(s)")
         for pf in parquet_files:
             print(f"  - {pf.relative_to(output_path.parent)}")
     print()
@@ -180,8 +188,8 @@ if __name__ == "__main__":
     try:
         asyncio.run(run_tests())
     except KeyboardInterrupt:
-        print("\n\nTest interrupted by user")
+        logger.warning("\n\nTest interrupted by user")
     except Exception as e:
-        print(f"\n\nError during testing: {e}")
+        logger.error(f"\n\nError during testing: {e}")
         import traceback
         traceback.print_exc()

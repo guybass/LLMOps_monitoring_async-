@@ -7,6 +7,10 @@ This example demonstrates the most basic usage of the monitoring system.
 import asyncio
 from llmops_monitoring import monitor_llm, initialize_monitoring, MonitorConfig
 from llmops_monitoring.schema.config import StorageConfig
+from llmops_monitoring.utils.logging_config import get_logger
+
+# Configure logger
+logger = get_logger(__name__)
 
 
 # Simulated LLM response
@@ -41,7 +45,7 @@ async def main():
 
     writer = await initialize_monitoring(config)
 
-    print("Running simple example...")
+    logger.info("Running simple example...")
 
     # Make some LLM calls
     for i in range(5):
@@ -55,8 +59,8 @@ async def main():
     # Stop monitoring
     await writer.stop()
 
-    print("\nDone! Check ./simple_monitoring_data for Parquet files.")
-    print("Events contain char_count, word_count, byte_size, and line_count metrics.")
+    logger.info("\nDone! Check ./simple_monitoring_data for Parquet files.")
+    logger.info("Events contain char_count, word_count, byte_size, and line_count metrics.")
 
 
 if __name__ == "__main__":

@@ -10,6 +10,10 @@ from typing import Any, Dict, Optional
 from llmops_monitoring import monitor_llm, initialize_monitoring, MonitorConfig
 from llmops_monitoring.instrumentation.base import MetricCollector, CollectorRegistry
 from llmops_monitoring.schema.config import StorageConfig
+from llmops_monitoring.utils.logging_config import get_logger
+
+# Configure logger
+logger = get_logger(__name__)
 
 
 class CostCollector(MetricCollector):
@@ -93,8 +97,8 @@ async def main():
 
     writer = await initialize_monitoring(config)
 
-    print("Running custom collector example...")
-    print("Tracking both text metrics AND estimated cost.\n")
+    logger.info("Running custom collector example...")
+    logger.info("Tracking both text metrics AND estimated cost.\n")
 
     # Make some calls
     prompts = [
@@ -113,13 +117,13 @@ async def main():
     await asyncio.sleep(3)
     await writer.stop()
 
-    print("\nDone! Check ./custom_collector_data")
-    print("Events include 'custom_attributes' with 'estimated_cost_usd'")
-    print("\nTo add your own collector:")
-    print("1. Extend MetricCollector")
-    print("2. Implement collect() method")
-    print("3. Register with CollectorRegistry")
-    print("4. Use in @monitor_llm(collectors=['your_collector'])")
+    logger.info("\nDone! Check ./custom_collector_data")
+    logger.info("Events include 'custom_attributes' with 'estimated_cost_usd'")
+    logger.info("\nTo add your own collector:")
+    logger.info("1. Extend MetricCollector")
+    logger.info("2. Implement collect() method")
+    logger.info("3. Register with CollectorRegistry")
+    logger.info("4. Use in @monitor_llm(collectors=['your_collector'])")
 
 
 if __name__ == "__main__":

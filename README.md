@@ -11,6 +11,15 @@
 
 A modern alternative to Langfuse/LangSmith focusing on **text/image capacity measurement** (not tokens), async-first architecture, and maximum extensibility.
 
+## Documentation
+
+📚 **[Complete Documentation](docs/README.md)** | 🚀 **[Quick Start Guide](docs/getting-started/QUICKSTART.md)** | 🧪 **[Testing Guide](docs/guides/TEST_GUIDE.md)** | 📊 **[Download Tracking](docs/guides/DOWNLOAD_TRACKING.md)**
+
+### Publishing Guides
+- **[Publishing to PyPI](docs/publishing/PUBLISH.md)** - Complete publication guide
+- **[Upload Guide](docs/publishing/UPLOAD_GUIDE.md)** - Quick reference
+- **[Pre-Publish Checklist](docs/publishing/PRE_PUBLISH_CHECKLIST.md)** - Step-by-step checklist
+
 ## Design Philosophy: "Leave Space for Air Conditioning"
 
 Every component has clear extension points for future enhancements. Whether you need custom metric collectors, new storage backends, or specialized aggregation strategies, the architecture supports growth without breaking existing code.
@@ -276,22 +285,6 @@ Replace the async queue with Kafka, Redis, etc. by modifying `MonitoringWriter`.
 - **Batching**: Configurable batch sizes for efficiency
 - **Buffering**: Handles bursts without data loss
 - **Graceful shutdown**: Flushes all pending events
-
-## Download Statistics
-
-llamonitor-async includes comprehensive download tracking:
-
-- **Real-time badges** showing current download counts (see badges above)
-- **Automated collection** via GitHub Actions (daily)
-- **Manual analysis tools** with Python scripts
-
-See [DOWNLOAD_TRACKING.md](DOWNLOAD_TRACKING.md) for full documentation.
-
-Quick stats check:
-```bash
-pip install pypistats pandas
-python scripts/fetch_download_stats.py
-```
 
 ## Development
 
