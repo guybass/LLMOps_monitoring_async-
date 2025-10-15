@@ -381,11 +381,21 @@ llamonitor_async.egg-info/
 .qodo/
 .codiumai/
 .cursor/
+.claude/
+
+# GitHub workflows (development - not for production repo)
+.github/
 
 # Temporary artifact files (Claude, AI tools)
 compass_artifact_*.md
 artifact_*.md
 temp_*.md
+
+# Temporary test scripts (not part of test suite)
+test_cost_collector.py
+test_pricing_data.py
+test_*.py
+!tests/test_*.py
 
 # Local environment files (should use .env.example as template)
 .env
@@ -403,3 +413,8 @@ personal_*.md
 .DS_Store
 Thumbs.db
 desktop.ini
+
+# Temporary development documentation (keep production docs)
+*_TEMP.md
+*_WIP.md
+*_DRAFT.md

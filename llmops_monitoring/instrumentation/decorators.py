@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional, Union
 from llmops_monitoring.instrumentation.base import CollectorRegistry, MetricCollector
 from llmops_monitoring.instrumentation.collectors.text import TextCollector
 from llmops_monitoring.instrumentation.collectors.image import ImageCollector
+from llmops_monitoring.instrumentation.collectors.cost import CostCollector
 from llmops_monitoring.instrumentation.context import SpanContext
 from llmops_monitoring.schema.events import MetricEvent
 from llmops_monitoring.transport.writer import MonitoringWriter
@@ -168,13 +169,19 @@ async def _monitor_execution(
             collected_metrics = {}
             context = {
                 "duration_ms": duration_ms,
-                "span_ctx": span_ctx
+                "span_ctx": span_ctx,
+                "custom_attributes": custom_attributes
             }
 
             for collector in collectors:
                 try:
                     if collector.should_collect(result, args, kwargs):
                         metrics = collector.collect(result, args, kwargs, context)
+                        # Update context with newly collected metrics so later collectors can use them
+                        if "text_metrics" in metrics:
+                            context["text_metrics"] = metrics["text_metrics"]
+                        if "image_metrics" in metrics:
+                            context["image_metrics"] = metrics["image_metrics"]
                         collected_metrics.update(metrics)
                 except Exception:
                     # Fail silently - never break user code
@@ -246,3 +253,4 @@ def _build_collectors(
 # Register built-in collectors
 CollectorRegistry.register("text", TextCollector)
 CollectorRegistry.register("image", ImageCollector)
+CollectorRegistry.register("cost", CostCollector)

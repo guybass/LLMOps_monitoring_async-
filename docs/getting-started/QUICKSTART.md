@@ -6,10 +6,16 @@ Get started with LLMOps Monitoring in 5 minutes!
 
 ```bash
 # Option 1: Local development with Parquet
-pip install pydantic aiofiles python-dotenv pandas pyarrow
+pip install 'llamonitor-async[parquet]'
 
 # Option 2: Production with PostgreSQL
-pip install pydantic aiofiles python-dotenv asyncpg sqlalchemy
+pip install 'llamonitor-async[postgres]'
+
+# Option 3: Production with MySQL
+pip install 'llamonitor-async[mysql]'
+
+# Option 4: Everything
+pip install 'llamonitor-async[all]'
 ```
 
 ## Step 2: Basic Usage
@@ -78,13 +84,7 @@ df = pd.concat([pd.read_parquet(f) for f in files])
 print(df[['operation_name', 'text_char_count', 'text_word_count', 'duration_ms']])
 ```
 
-### Option B: Use PostgreSQL + Grafana
-
-Start the stack:
-
-```bash
-docker-compose up -d
-```
+### Option B: Use PostgreSQL
 
 Update your code to use PostgreSQL:
 
@@ -92,9 +92,30 @@ Update your code to use PostgreSQL:
 config = MonitorConfig(
     storage=StorageConfig(
         backend="postgres",
-        connection_string="postgresql://monitoring:monitoring_password@localhost:5432/llm_monitoring"
+        connection_string="postgresql://user:pass@localhost:5432/monitoring"
     )
 )
+```
+
+### Option C: Use MySQL
+
+Update your code to use MySQL:
+
+```python
+config = MonitorConfig(
+    storage=StorageConfig(
+        backend="mysql",
+        connection_string="mysql://user:pass@localhost:3306/monitoring"
+    )
+)
+```
+
+### Option D: Use Grafana for Visualization
+
+Start the monitoring stack:
+
+```bash
+docker-compose up -d
 ```
 
 Access Grafana at `http://localhost:3000` (admin/admin)
@@ -141,36 +162,79 @@ WHERE session_id = 'user-123'
 ORDER BY timestamp;
 ```
 
-## Step 5: Custom Metrics
+## Step 5: Built-in Cost Tracking
 
-Add your own collectors:
+Track LLM costs automatically with the built-in cost collector:
+
+```python
+# Enable cost calculation by adding "cost" collector and model name
+@monitor_llm(
+    operation_name="my_llm_call",
+    measure_text=True,
+    collectors=["cost"],  # Enable cost tracking
+    custom_attributes={
+        "model": "gpt-4o-mini"  # Required for cost calculation
+    }
+)
+async def my_llm_call(prompt: str):
+    return LLMResponse(text="response...")
+```
+
+**Supported Models (18 total):**
+- **OpenAI**: gpt-4, gpt-4-turbo, gpt-4o, gpt-4o-mini, gpt-3.5-turbo
+- **Anthropic**: claude-3-opus, claude-3-sonnet, claude-3-5-sonnet, claude-3-haiku
+- **Google**: gemini-1.5-pro, gemini-1.5-flash, gemini-1.0-pro
+- **Meta**: llama-3-8b, llama-3-70b
+- **Mistral**: mixtral-8x7b, mistral-small, mistral-medium, mistral-large
+
+**For exact costs**, provide token counts in custom_attributes:
+
+```python
+@monitor_llm(
+    collectors=["cost"],
+    custom_attributes={
+        "model": "gpt-4",
+        "input_tokens": 150,
+        "output_tokens": 500
+    }
+)
+async def precise_cost_tracking():
+    ...
+```
+
+Query costs:
+
+```python
+import pandas as pd
+df = pd.read_parquet("./dev_monitoring_data/**/*.parquet")
+
+# Extract cost from custom_attributes
+df['cost'] = df['custom_attributes'].apply(lambda x: x.get('estimated_cost_usd'))
+print(f"Total cost: ${df['cost'].sum():.6f}")
+```
+
+## Step 6: Custom Metrics
+
+For completely custom collectors, extend MetricCollector:
 
 ```python
 from llmops_monitoring.instrumentation.base import MetricCollector, CollectorRegistry
 
-class CostCollector(MetricCollector):
+class MyCustomCollector(MetricCollector):
     def collect(self, result, args, kwargs, context):
-        # Calculate cost based on your logic
-        text_length = len(result.text) if hasattr(result, 'text') else 0
-        cost = (text_length / 1000) * 0.002  # $0.002 per 1k chars
-
-        return {
-            "custom_attributes": {
-                "estimated_cost_usd": round(cost, 6)
-            }
-        }
+        # Your custom logic here
+        return {"custom_attributes": {"my_metric": 123}}
 
     @property
     def metric_type(self) -> str:
-        return "cost"
+        return "custom"
 
-# Register
-CollectorRegistry.register("cost", CostCollector)
+# Register and use
+CollectorRegistry.register("my_custom", MyCustomCollector)
 
-# Use it
-@monitor_llm(collectors=["cost"])
+@monitor_llm(collectors=["my_custom"])
 async def my_function():
-    return LLMResponse(text="response...")
+    ...
 ```
 
 ## Next Steps
@@ -180,6 +244,8 @@ async def my_function():
    python llmops_monitoring/examples/01_simple_example.py
    python llmops_monitoring/examples/02_agentic_workflow.py
    python llmops_monitoring/examples/03_custom_collector.py
+   python llmops_monitoring/examples/04_mysql_backend.py
+   python llmops_monitoring/examples/05_cost_calculation.py
    ```
 
 2. **Read the architecture docs**: `llmops_monitoring/docs/ARCHITECTURE.md`

@@ -1,0 +1,142 @@
+{
+  "version": "2025-01",
+  "last_updated": "2025-01-15",
+  "models": {
+    "gpt-4": {
+      "provider": "openai",
+      "input_cost_per_1k_tokens": 0.03,
+      "output_cost_per_1k_tokens": 0.06,
+      "context_window": 8192,
+      "description": "GPT-4 base model"
+    },
+    "gpt-4-turbo": {
+      "provider": "openai",
+      "input_cost_per_1k_tokens": 0.01,
+      "output_cost_per_1k_tokens": 0.03,
+      "context_window": 128000,
+      "description": "GPT-4 Turbo with vision"
+    },
+    "gpt-4o": {
+      "provider": "openai",
+      "input_cost_per_1k_tokens": 0.005,
+      "output_cost_per_1k_tokens": 0.015,
+      "context_window": 128000,
+      "description": "GPT-4o omni model"
+    },
+    "gpt-4o-mini": {
+      "provider": "openai",
+      "input_cost_per_1k_tokens": 0.00015,
+      "output_cost_per_1k_tokens": 0.0006,
+      "context_window": 128000,
+      "description": "GPT-4o mini cost-effective model"
+    },
+    "gpt-3.5-turbo": {
+      "provider": "openai",
+      "input_cost_per_1k_tokens": 0.0005,
+      "output_cost_per_1k_tokens": 0.0015,
+      "context_window": 16385,
+      "description": "GPT-3.5 Turbo"
+    },
+    "claude-3-opus": {
+      "provider": "anthropic",
+      "input_cost_per_1k_tokens": 0.015,
+      "output_cost_per_1k_tokens": 0.075,
+      "context_window": 200000,
+      "description": "Claude 3 Opus - most capable"
+    },
+    "claude-3-sonnet": {
+      "provider": "anthropic",
+      "input_cost_per_1k_tokens": 0.003,
+      "output_cost_per_1k_tokens": 0.015,
+      "context_window": 200000,
+      "description": "Claude 3 Sonnet - balanced"
+    },
+    "claude-3-5-sonnet": {
+      "provider": "anthropic",
+      "input_cost_per_1k_tokens": 0.003,
+      "output_cost_per_1k_tokens": 0.015,
+      "context_window": 200000,
+      "description": "Claude 3.5 Sonnet - enhanced"
+    },
+    "claude-3-haiku": {
+      "provider": "anthropic",
+      "input_cost_per_1k_tokens": 0.00025,
+      "output_cost_per_1k_tokens": 0.00125,
+      "context_window": 200000,
+      "description": "Claude 3 Haiku - fast and compact"
+    },
+    "gemini-1.5-pro": {
+      "provider": "google",
+      "input_cost_per_1k_tokens": 0.00125,
+      "output_cost_per_1k_tokens": 0.005,
+      "context_window": 1000000,
+      "description": "Gemini 1.5 Pro - long context"
+    },
+    "gemini-1.5-flash": {
+      "provider": "google",
+      "input_cost_per_1k_tokens": 0.000075,
+      "output_cost_per_1k_tokens": 0.0003,
+      "context_window": 1000000,
+      "description": "Gemini 1.5 Flash - fast and efficient"
+    },
+    "gemini-1.0-pro": {
+      "provider": "google",
+      "input_cost_per_1k_tokens": 0.0005,
+      "output_cost_per_1k_tokens": 0.0015,
+      "context_window": 32000,
+      "description": "Gemini 1.0 Pro"
+    },
+    "llama-3-8b": {
+      "provider": "meta",
+      "input_cost_per_1k_tokens": 0.0002,
+      "output_cost_per_1k_tokens": 0.0002,
+      "context_window": 8192,
+      "description": "Llama 3 8B (via cloud providers)"
+    },
+    "llama-3-70b": {
+      "provider": "meta",
+      "input_cost_per_1k_tokens": 0.0008,
+      "output_cost_per_1k_tokens": 0.0008,
+      "context_window": 8192,
+      "description": "Llama 3 70B (via cloud providers)"
+    },
+    "mixtral-8x7b": {
+      "provider": "mistral",
+      "input_cost_per_1k_tokens": 0.0007,
+      "output_cost_per_1k_tokens": 0.0007,
+      "context_window": 32000,
+      "description": "Mixtral 8x7B"
+    },
+    "mistral-small": {
+      "provider": "mistral",
+      "input_cost_per_1k_tokens": 0.002,
+      "output_cost_per_1k_tokens": 0.006,
+      "context_window": 32000,
+      "description": "Mistral Small"
+    },
+    "mistral-medium": {
+      "provider": "mistral",
+      "input_cost_per_1k_tokens": 0.0027,
+      "output_cost_per_1k_tokens": 0.0081,
+      "context_window": 32000,
+      "description": "Mistral Medium"
+    },
+    "mistral-large": {
+      "provider": "mistral",
+      "input_cost_per_1k_tokens": 0.008,
+      "output_cost_per_1k_tokens": 0.024,
+      "context_window": 32000,
+      "description": "Mistral Large"
+    }
+  },
+  "defaults": {
+    "fallback_cost_per_1k_chars": 0.001,
+    "chars_to_tokens_ratio": 4,
+    "image_cost_per_image": 0.00085
+  },
+  "notes": {
+    "pricing_accuracy": "Prices are approximate and based on public documentation as of January 2025",
+    "chars_to_tokens": "Default ratio is 4 chars per token (English text)",
+    "custom_models": "For custom or fine-tuned models, set custom pricing in collector config"
+  }
+}
