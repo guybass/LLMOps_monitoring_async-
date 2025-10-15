@@ -3,7 +3,9 @@ include LICENSE
 include CONTRIBUTING.md
 include QUICKSTART.md
 include TEST_GUIDE.md
+include CHANGELOG.md
 include requirements.txt
 recursive-include llmops_monitoring *.py
+recursive-include llmops_monitoring/data *.json
 recursive-include docker *
 include docker-compose.yml
