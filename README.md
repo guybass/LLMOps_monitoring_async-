@@ -29,6 +29,7 @@ Every component has clear extension points for future enhancements. Whether you 
 - **Async-First**: Non-blocking metric collection with buffered batch writes
 - **Hierarchical Tracking**: Automatic parent-child relationships across nested operations
 - **Flexible Metrics**: Measure text (characters, words, bytes) and images (count, pixels, file size)
+- **Built-in Cost Tracking**: Automatic cost calculation for 18+ major LLM models ✨ NEW!
 - **Pluggable Storage**: Local Parquet, PostgreSQL, MySQL (easily add more)
 - **Simple API**: Single decorator for most use cases
 - **Production-Ready**: Error handling, retries, graceful shutdown
@@ -45,6 +46,7 @@ pip install llamonitor-async
 # With storage backends
 pip install llamonitor-async[parquet]    # For local Parquet files
 pip install llamonitor-async[postgres]   # For PostgreSQL
+pip install llamonitor-async[mysql]      # For MySQL
 pip install llamonitor-async[all]        # Everything
 ```
 
@@ -174,25 +176,56 @@ with monitoring_session("user-123"):
         result = await run_workflow("What is the weather?")
 ```
 
+### Built-in Cost Tracking ✨ NEW!
+
+Automatically track costs for major LLM providers:
+
+```python
+@monitor_llm(
+    operation_name="my_llm_call",
+    measure_text=True,
+    collectors=["cost"],  # Enable cost tracking
+    custom_attributes={
+        "model": "gpt-4o-mini"  # Pricing lookup
+    }
+)
+async def my_llm_call(prompt: str):
+    # Your LLM API call here
+    return {"text": "response..."}
+
+# Query costs later
+import pandas as pd
+df = pd.read_parquet("./dev_monitoring_data/**/*.parquet")
+df['cost'] = df['custom_attributes'].apply(lambda x: x.get('estimated_cost_usd'))
+print(f"Total cost: ${df['cost'].sum():.6f}")
+```
+
+**Supported Models (18 total):**
+- OpenAI: gpt-4, gpt-4-turbo, gpt-4o, gpt-4o-mini, gpt-3.5-turbo
+- Anthropic: claude-3-opus, claude-3-sonnet, claude-3-5-sonnet, claude-3-haiku
+- Google: gemini-1.5-pro, gemini-1.5-flash, gemini-1.0-pro
+- Meta: llama-3-8b, llama-3-70b
+- Mistral: mixtral-8x7b, mistral-small, mistral-medium, mistral-large
+
 ### Custom Metrics
+
+For completely custom collectors:
 
 ```python
 from llmops_monitoring.instrumentation.base import MetricCollector, CollectorRegistry
 
-class CostCollector(MetricCollector):
+class MyCustomCollector(MetricCollector):
     def collect(self, result, args, kwargs, context):
-        # Your cost calculation logic
-        return {"custom_attributes": {"cost_usd": 0.002}}
+        # Your custom logic
+        return {"custom_attributes": {"my_metric": 123}}
 
     @property
     def metric_type(self) -> str:
-        return "cost"
+        return "custom"
 
-# Register
-CollectorRegistry.register("cost", CostCollector)
+CollectorRegistry.register("my_custom", MyCustomCollector)
 
-# Use
-@monitor_llm(collectors=["cost"])
+@monitor_llm(collectors=["my_custom"])
 async def my_function():
     ...
 ```
@@ -244,6 +277,21 @@ config = MonitorConfig(
 ```
 
 Tables are created automatically with proper indexes.
+
+### MySQL (Production)
+
+```python
+config = MonitorConfig(
+    storage=StorageConfig(
+        backend="mysql",
+        connection_string="mysql://user:pass@host:3306/monitoring",
+        table_name="metric_events",
+        pool_size=20
+    )
+)
+```
+
+Tables are created automatically with InnoDB engine and proper indexes.
 
 ## Extension Points
 
@@ -303,6 +351,8 @@ pytest
 python llmops_monitoring/examples/01_simple_example.py
 python llmops_monitoring/examples/02_agentic_workflow.py
 python llmops_monitoring/examples/03_custom_collector.py
+python llmops_monitoring/examples/04_mysql_backend.py
+python llmops_monitoring/examples/05_cost_calculation.py
 
 # Start monitoring stack
 docker-compose up -d
@@ -310,14 +360,14 @@ docker-compose up -d
 
 ## Roadmap
 
-- [ ] MySQL backend implementation
+- [x] **MySQL backend implementation** ✅ (v0.1.1)
+- [x] **Built-in cost calculation with pricing data** ✅ (v0.1.1)
+- [ ] Prometheus exporter (In Progress)
+- [ ] Aggregation server with REST API
+- [ ] Real-time streaming with WebSockets
 - [ ] ClickHouse backend for analytics
 - [ ] GraphQL backend support
-- [ ] Real-time streaming with WebSockets
-- [ ] Built-in cost calculation with pricing data
 - [ ] ML-based anomaly detection
-- [ ] Aggregation server with REST API
-- [ ] Prometheus exporter
 - [ ] Datadog integration
 
 ## Contributing
