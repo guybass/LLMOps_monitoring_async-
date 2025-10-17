@@ -1,6 +1,6 @@
 """Configuration models for the monitoring system."""
 
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
@@ -35,6 +35,52 @@ class StorageConfig(BaseModel):
                 "table_name": "metric_events",
                 "batch_size": 100,
                 "flush_interval_seconds": 5.0
+            }
+        }
+
+
+class PrometheusConfig(BaseModel):
+    """
+    Configuration for Prometheus metrics exporter.
+
+    Extension Point: Configure Prometheus metrics exposure.
+    """
+    enabled: bool = False
+    port: int = 8000
+    host: str = "0.0.0.0"
+    path: str = "/metrics"
+    include_labels: List[str] = Field(
+        default_factory=lambda: ["operation_name", "model", "operation_type"]
+    )
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "enabled": True,
+                "port": 8000,
+                "host": "0.0.0.0",
+                "path": "/metrics",
+                "include_labels": ["operation_name", "model", "operation_type"]
+            }
+        }
+
+
+class WebSocketConfig(BaseModel):
+    """
+    Configuration for WebSocket real-time streaming.
+
+    Extension Point: Configure WebSocket event streaming.
+    """
+    enabled: bool = False
+    path: str = "/api/v1/stream"
+    max_connections: int = 100
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "enabled": True,
+                "path": "/api/v1/stream",
+                "max_connections": 100
             }
         }
 

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "llamonitor-async"
-version = "0.1.2"
+version = "0.2.0"
 description = "Lightweight async monitoring for LLM applications - capacity-based tracking with pluggable storage"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -43,8 +43,15 @@ mysql = [
     "aiomysql>=0.2.0",
     "sqlalchemy>=2.0.0",
 ]
+prometheus = [
+    "prometheus-client>=0.19.0",
+]
+api = [
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+]
 all = [
-    "llamonitor-async[parquet,postgres,mysql]",
+    "llamonitor-async[parquet,postgres,mysql,prometheus,api]",
 ]
 dev = [
     "pytest>=7.0.0",

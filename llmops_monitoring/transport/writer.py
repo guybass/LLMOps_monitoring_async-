@@ -51,6 +51,8 @@ class MonitoringWriter:
         self.running = False
         self.buffer: List[MetricEvent] = []
         self.last_flush = datetime.utcnow()
+        self._prometheus_exporter = None  # Will be initialized if configured
+        self._event_broadcaster = None  # Will be initialized if configured
 
         MonitoringWriter._instance = self
 
@@ -93,6 +95,33 @@ class MonitoringWriter:
         self.backend = await self._create_backend()
         await self.backend.initialize()
 
+        # Initialize Prometheus exporter if configured
+        prometheus_config = self.config.extensions.get("prometheus")
+        if prometheus_config and prometheus_config.get("enabled", False):
+            try:
+                from llmops_monitoring.exporters.prometheus import PrometheusExporter
+                self._prometheus_exporter = PrometheusExporter(prometheus_config)
+                await self._prometheus_exporter.initialize()
+                logger.info("Prometheus exporter initialized")
+            except ImportError:
+                logger.warning(
+                    "Prometheus exporter requested but prometheus_client not installed. "
+                    "Install with: pip install 'llamonitor-async[prometheus]'"
+                )
+            except Exception as e:
+                logger.error(f"Failed to initialize Prometheus exporter: {e}")
+
+        # Initialize WebSocket event broadcaster if configured
+        websocket_config = self.config.extensions.get("websocket")
+        if websocket_config and websocket_config.get("enabled", False):
+            try:
+                from llmops_monitoring.streaming.broadcaster import EventBroadcaster
+                self._event_broadcaster = EventBroadcaster.get_instance()
+                self._event_broadcaster.enable()
+                logger.info("WebSocket event broadcaster initialized")
+            except Exception as e:
+                logger.error(f"Failed to initialize event broadcaster: {e}")
+
         # Start worker
         self.running = True
         self.worker_task = asyncio.create_task(self._worker())
@@ -133,6 +162,10 @@ class MonitoringWriter:
         if self.backend:
             await self.backend.close()
 
+        # Shutdown Prometheus exporter
+        if self._prometheus_exporter:
+            await self._prometheus_exporter.shutdown()
+
         logger.info("MonitoringWriter stopped")
 
     async def write_event(self, event: MetricEvent) -> None:
@@ -156,6 +189,13 @@ class MonitoringWriter:
         """Background worker that processes events from queue."""
         while self.running:
             try:
+                # Update Prometheus queue metrics
+                if self._prometheus_exporter:
+                    self._prometheus_exporter.update_queue_metrics(
+                        self.queue.qsize(),
+                        len(self.buffer)
+                    )
+
                 # Wait for event or timeout
                 try:
                     event = await asyncio.wait_for(
@@ -192,11 +232,21 @@ class MonitoringWriter:
             return
 
         try:
+            # Write to storage backend
             if self.backend.supports_batch_writes() and len(self.buffer) > 1:
                 await self.backend.write_batch(self.buffer)
             else:
                 for event in self.buffer:
                     await self.backend.write_event(event)
+
+            # Update Prometheus metrics if exporter is enabled
+            if self._prometheus_exporter:
+                for event in self.buffer:
+                    self._prometheus_exporter.record_event(event)
+
+            # Broadcast events to WebSocket connections if broadcaster is enabled
+            if self._event_broadcaster:
+                await self._event_broadcaster.broadcast_events(self.buffer)
 
             logger.debug(f"Flushed {len(self.buffer)} events to storage")
             self.buffer.clear()
@@ -236,12 +286,22 @@ class MonitoringWriter:
         Returns:
             Health status dictionary
         """
-        return {
+        health = {
             "running": self.running,
             "queue_size": self.queue.qsize(),
             "buffer_size": len(self.buffer),
             "backend_healthy": await self.backend.health_check() if self.backend else False
         }
+
+        # Include Prometheus exporter health if enabled
+        if self._prometheus_exporter:
+            health["prometheus"] = self._prometheus_exporter.health_check()
+
+        # Include WebSocket broadcaster stats if enabled
+        if self._event_broadcaster:
+            health["websocket"] = self._event_broadcaster.get_stats()
+
+        return health
 
 
 # Convenience function for quick setup

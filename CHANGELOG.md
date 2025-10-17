@@ -5,6 +5,56 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2025-10-17
+
+### Added
+- **Real-time WebSocket Streaming**: Stream monitoring events in real-time via WebSockets
+  - ConnectionManager for WebSocket lifecycle management
+  - EventBroadcaster integrated with MonitoringWriter
+  - WebSocket endpoints: general stream, session-specific, operation-specific
+  - Subscription filters (session_id, operation_name, error_only)
+  - Automatic broadcasting of events as they're flushed
+  - WebSocketConfig for easy configuration
+  - Example: llmops_monitoring/examples/08_websocket_streaming.py
+
+- **Aggregation REST API**: FastAPI-based HTTP API for querying and aggregating monitoring data
+  - Query backends for Parquet, PostgreSQL, and MySQL
+  - AggregationService for high-level data access
+  - Full REST API with OpenAPI/Swagger documentation
+  - Endpoints for events, sessions, traces, and metrics
+  - Aggregation endpoints (by operation, model, costs)
+  - Summary statistics endpoint
+  - Health check endpoint
+  - Example: llmops_monitoring/examples/07_aggregation_api.py
+
+- **Prometheus Metrics Exporter**: Real-time metrics export via HTTP endpoint
+  - Base exporter interface (llmops_monitoring/exporters/base.py)
+  - Full PrometheusExporter implementation with 7 metric types:
+    - `llm_operations_total` (Counter) - Total operations by operation_name, model, type
+    - `llm_errors_total` (Counter) - Total errors by operation_name, error_type
+    - `llm_operation_duration_seconds` (Histogram) - Operation latency distribution
+    - `llm_text_characters_total` (Counter) - Total characters processed
+    - `llm_cost_usd` (Histogram) - Cost per operation distribution
+    - `llm_queue_size` (Gauge) - Current queue size
+    - `llm_buffer_size` (Gauge) - Current buffer size
+  - HTTP server on configurable port (default: 8000)
+  - Graceful handling when prometheus_client not installed
+  - PrometheusConfig for easy configuration
+  - Integration with MonitoringWriter flush pipeline
+  - Example: llmops_monitoring/examples/06_prometheus_exporter.py
+  - Comprehensive test suite (tests/test_prometheus_exporter.py)
+
+### Changed
+- Updated architecture to include exporters layer
+- Enhanced MonitoringWriter with exporter lifecycle management
+- Updated README with Prometheus documentation and examples
+
+### Documentation
+- Added Prometheus installation instructions
+- Added Prometheus metrics export section with configuration examples
+- Updated roadmap marking Prometheus exporter as complete
+- Updated architecture diagram with exporters layer
+
 ## [0.1.2] - 2025-10-15
 
 ### Added

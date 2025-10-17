@@ -30,6 +30,7 @@ Every component has clear extension points for future enhancements. Whether you 
 - **Hierarchical Tracking**: Automatic parent-child relationships across nested operations
 - **Flexible Metrics**: Measure text (characters, words, bytes) and images (count, pixels, file size)
 - **Built-in Cost Tracking**: Automatic cost calculation for 18+ major LLM models ✨ NEW!
+- **Prometheus Exporter**: Real-time metrics export for monitoring and alerting ✨ NEW!
 - **Pluggable Storage**: Local Parquet, PostgreSQL, MySQL (easily add more)
 - **Simple API**: Single decorator for most use cases
 - **Production-Ready**: Error handling, retries, graceful shutdown
@@ -47,6 +48,8 @@ pip install llamonitor-async
 pip install llamonitor-async[parquet]    # For local Parquet files
 pip install llamonitor-async[postgres]   # For PostgreSQL
 pip install llamonitor-async[mysql]      # For MySQL
+pip install llamonitor-async[prometheus] # For Prometheus metrics
+pip install llamonitor-async[api]        # For REST API server
 pip install llamonitor-async[all]        # Everything
 ```
 
@@ -89,7 +92,7 @@ if __name__ == "__main__":
                     ▼
 ┌─────────────────────────────────────────────────────────────┐
 │              Instrumentation Layer                          │
-│  • MetricCollectors (text, image, custom)                   │
+│  • MetricCollectors (text, image, cost, custom)             │
 │  • Context Management (session/trace/span)                  │
 │  • Decorator Logic                                          │
 └───────────────────┬─────────────────────────────────────────┘
@@ -102,13 +105,14 @@ if __name__ == "__main__":
 │  • Retry Logic                                              │
 └───────────────────┬─────────────────────────────────────────┘
                     │
-                    ▼
-┌─────────────────────────────────────────────────────────────┐
-│              Storage Backend                                │
-│  • Parquet (local files)                                    │
-│  • PostgreSQL (production)                                  │
-│  • Custom backends                                          │
-└─────────────────────────────────────────────────────────────┘
+                    ├─────────────────────┬───────────────────┐
+                    ▼                     ▼                   ▼
+         ┌─────────────────┐   ┌──────────────────┐  ┌──────────────┐
+         │ Storage Backend │   │ Metrics Exporter │  │   Future     │
+         │  • Parquet      │   │  • Prometheus    │  │ Integrations │
+         │  • PostgreSQL   │   │  • Datadog (TBD) │  │              │
+         │  • MySQL        │   │  • Custom        │  │              │
+         └─────────────────┘   └──────────────────┘  └──────────────┘
 ```
 
 ## Configuration
@@ -206,6 +210,44 @@ print(f"Total cost: ${df['cost'].sum():.6f}")
 - Google: gemini-1.5-pro, gemini-1.5-flash, gemini-1.0-pro
 - Meta: llama-3-8b, llama-3-70b
 - Mistral: mixtral-8x7b, mistral-small, mistral-medium, mistral-large
+
+### Prometheus Metrics Export ✨ NEW!
+
+Expose metrics to Prometheus for monitoring and alerting:
+
+```python
+from llmops_monitoring import initialize_monitoring, MonitorConfig
+from llmops_monitoring.schema.config import PrometheusConfig
+
+# Configure with Prometheus exporter
+config = MonitorConfig.for_local_dev()
+config.extensions["prometheus"] = PrometheusConfig(
+    enabled=True,
+    port=8000,
+    host="0.0.0.0"
+).model_dump()
+
+await initialize_monitoring(config)
+
+# Metrics available at http://localhost:8000/metrics
+```
+
+**Available Metrics:**
+- `llm_operations_total` (Counter): Total operations by operation_name, model, type
+- `llm_errors_total` (Counter): Total errors by operation_name, error_type
+- `llm_operation_duration_seconds` (Histogram): Operation latency distribution
+- `llm_text_characters_total` (Counter): Total characters processed
+- `llm_cost_usd` (Histogram): Cost per operation distribution
+- `llm_queue_size` (Gauge): Current queue size
+- `llm_buffer_size` (Gauge): Current buffer size
+
+**Prometheus Scrape Config:**
+```yaml
+scrape_configs:
+  - job_name: 'llm-monitoring'
+    static_configs:
+      - targets: ['localhost:8000']
+```
 
 ### Custom Metrics
 
@@ -353,18 +395,110 @@ python llmops_monitoring/examples/02_agentic_workflow.py
 python llmops_monitoring/examples/03_custom_collector.py
 python llmops_monitoring/examples/04_mysql_backend.py
 python llmops_monitoring/examples/05_cost_calculation.py
+python llmops_monitoring/examples/06_prometheus_exporter.py
+python llmops_monitoring/examples/07_aggregation_api.py
+python llmops_monitoring/examples/08_websocket_streaming.py
 
 # Start monitoring stack
 docker-compose up -d
+```
+
+## REST API for Querying Data ✨ NEW!
+
+Query and aggregate stored monitoring data via REST API:
+
+```python
+from llmops_monitoring import MonitorConfig
+from llmops_monitoring.api import run_api_server
+
+# Start API server
+config = MonitorConfig.for_local_dev()
+run_api_server(config, port=8080)
+
+# API available at http://localhost:8080
+# Interactive docs at http://localhost:8080/docs
+```
+
+**Available Endpoints:**
+- `GET /api/health` - Health check
+- `GET /api/v1/events` - Query events with filters
+- `GET /api/v1/sessions` - List sessions
+- `GET /api/v1/sessions/{session_id}` - Session details
+- `GET /api/v1/sessions/{session_id}/traces` - Get traces
+- `GET /api/v1/metrics/summary` - Summary statistics
+- `GET /api/v1/metrics/operations` - Metrics by operation
+- `GET /api/v1/metrics/models` - Metrics by model
+- `GET /api/v1/metrics/costs` - Cost analytics
+
+**Query Examples:**
+```bash
+# Get summary statistics
+curl http://localhost:8080/api/v1/metrics/summary
+
+# List recent sessions
+curl http://localhost:8080/api/v1/sessions?limit=10
+
+# Get metrics by operation
+curl http://localhost:8080/api/v1/metrics/operations
+
+# Get cost analytics grouped by model
+curl 'http://localhost:8080/api/v1/metrics/costs?group_by=model'
+```
+
+## Real-time WebSocket Streaming ✨ NEW!
+
+Stream monitoring events in real-time via WebSockets:
+
+```python
+from llmops_monitoring import MonitorConfig, initialize_monitoring
+from llmops_monitoring.schema.config import WebSocketConfig
+
+# Enable WebSocket streaming
+config = MonitorConfig.for_local_dev()
+config.extensions["websocket"] = WebSocketConfig(
+    enabled=True
+).model_dump()
+
+await initialize_monitoring(config)
+```
+
+**WebSocket Endpoints:**
+- `WS /api/v1/stream` - All events in real-time
+- `WS /api/v1/stream/sessions/{session_id}` - Session-specific events
+- `WS /api/v1/stream/operations/{operation_name}` - Operation-specific events
+
+**Python Client Example:**
+```python
+import asyncio
+import websockets
+import json
+
+async def listen_to_events():
+    uri = 'ws://localhost:8080/api/v1/stream'
+    async with websockets.connect(uri) as websocket:
+        async for message in websocket:
+            event = json.loads(message)
+            print(f"Received event: {event['data']['operation_name']}")
+
+asyncio.run(listen_to_events())
+```
+
+**JavaScript Client Example:**
+```javascript
+const ws = new WebSocket('ws://localhost:8080/api/v1/stream');
+ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    console.log('Received event:', data);
+};
 ```
 
 ## Roadmap
 
 - [x] **MySQL backend implementation** ✅ (v0.1.1)
 - [x] **Built-in cost calculation with pricing data** ✅ (v0.1.1)
-- [ ] Prometheus exporter (In Progress)
-- [ ] Aggregation server with REST API
-- [ ] Real-time streaming with WebSockets
+- [x] **Prometheus exporter** ✅ (v0.2.0)
+- [x] **Aggregation server with REST API** ✅ (v0.2.0)
+- [x] **Real-time streaming with WebSockets** ✅ (v0.2.0)
 - [ ] ClickHouse backend for analytics
 - [ ] GraphQL backend support
 - [ ] ML-based anomaly detection
