@@ -7,9 +7,9 @@
 [![Downloads/Month](https://static.pepy.tech/badge/llamonitor-async/month)](https://pepy.tech/project/llamonitor-async)
 [![Downloads/Week](https://static.pepy.tech/badge/llamonitor-async/week)](https://pepy.tech/project/llamonitor-async)
 
-**Lightweight async monitoring for LLM applications** - capacity-based tracking with pluggable storage.
+**Lightweight async monitoring for LLM applications** - flexible measurement strategies with pluggable storage.
 
-A modern alternative to Langfuse/LangSmith focusing on **text/image capacity measurement** (not tokens), async-first architecture, and maximum extensibility.
+A modern alternative to Langfuse/LangSmith with **pluggable measurement** (capacity OR tokens OR both), async-first architecture, and maximum extensibility.
 
 ## Documentation
 
@@ -28,10 +28,12 @@ Every component has clear extension points for future enhancements. Whether you 
 
 - **Async-First**: Non-blocking metric collection with buffered batch writes
 - **Hierarchical Tracking**: Automatic parent-child relationships across nested operations
-- **Flexible Metrics**: Measure text (characters, words, bytes) and images (count, pixels, file size)
-- **Built-in Cost Tracking**: Automatic cost calculation for 18+ major LLM models ✨ NEW!
-- **Prometheus Exporter**: Real-time metrics export for monitoring and alerting ✨ NEW!
-- **Pluggable Storage**: Local Parquet, PostgreSQL, MySQL (easily add more)
+- **Pluggable Measurement**: Choose capacity (chars/words/bytes), tokens (industry standard), or hybrid ✨ NEW!
+- **Flexible Metrics**: Measure text (characters, words, bytes, tokens) and images (count, pixels, file size)
+- **Built-in Cost Tracking**: Automatic cost calculation for 18+ major LLM models
+- **Prometheus Exporter**: Real-time metrics export for monitoring and alerting
+- **Anomaly Detection**: ML-based detection with Z-score, IQR, and error rate methods
+- **Pluggable Storage**: Local Parquet, PostgreSQL, MySQL, ClickHouse (easily add more)
 - **Simple API**: Single decorator for most use cases
 - **Production-Ready**: Error handling, retries, graceful shutdown
 - **Extensible**: Custom collectors, backends, and aggregation strategies
@@ -48,8 +50,20 @@ pip install llamonitor-async
 pip install llamonitor-async[parquet]    # For local Parquet files
 pip install llamonitor-async[postgres]   # For PostgreSQL
 pip install llamonitor-async[mysql]      # For MySQL
+pip install llamonitor-async[clickhouse] # For ClickHouse (analytics)
+
+# With measurement strategies
+pip install llamonitor-async[tokens]     # For token measurement (tiktoken)
+
+# With exporters and integrations
 pip install llamonitor-async[prometheus] # For Prometheus metrics
+pip install llamonitor-async[datadog]    # For Datadog integration
+
+# With API servers
 pip install llamonitor-async[api]        # For REST API server
+pip install llamonitor-async[graphql]    # For GraphQL API
+
+# All features
 pip install llamonitor-async[all]        # Everything
 ```
 
@@ -80,6 +94,155 @@ async def main():
 if __name__ == "__main__":
     asyncio.run(main())
 ```
+
+## Measurement Strategies ✨ NEW!
+
+Choose how to measure text: **capacity** (chars/words/bytes), **tokens** (industry standard), or **both** (hybrid).
+
+### Strategy Modes
+
+**1. Auto Mode** (Recommended)
+Automatically selects the best strategy based on the model:
+```python
+@monitor_llm(
+    operation_name="my_llm_call",
+    measurement="auto",  # Auto-select based on model
+    measure_text=True,
+    custom_attributes={"model": "gpt-4"}
+)
+async def my_llm_call(prompt: str):
+    return await llm.generate(prompt)
+```
+
+**2. Token Mode** (Cost Tracking)
+Accurate token counting using provider-specific tokenizers:
+```python
+@monitor_llm(
+    operation_name="my_llm_call",
+    measurement="token",  # Use token counting
+    measure_text=True,
+    custom_attributes={"model": "gpt-4"}
+)
+async def my_llm_call(prompt: str):
+    return await llm.generate(prompt)
+
+# Metrics collected: input_tokens, output_tokens, total_tokens
+```
+
+**3. Capacity Mode** (Performance Monitoring)
+Fast, reliable character/word/byte counting:
+```python
+@monitor_llm(
+    operation_name="my_llm_call",
+    measurement="capacity",  # Use capacity metrics
+    measure_text=True
+)
+async def my_llm_call(prompt: str):
+    return await llm.generate(prompt)
+
+# Metrics collected: char_count, word_count, byte_size, line_count
+```
+
+**4. Hybrid Mode** (Migration & Cross-Validation)
+Collect BOTH capacity and token metrics simultaneously:
+```python
+@monitor_llm(
+    operation_name="my_llm_call",
+    measurement="hybrid",  # Collect both!
+    measure_text=True,
+    custom_attributes={"model": "gpt-4"}
+)
+async def my_llm_call(prompt: str):
+    return await llm.generate(prompt)
+
+# Metrics collected: char_count, word_count, byte_size, line_count,
+#                    input_tokens, output_tokens, total_tokens
+```
+
+### Direct Usage (Without Decorator)
+
+```python
+from llmops_monitoring.measurement import measure_text
+
+# Quick measurement
+result = await measure_text(
+    "Hello, world!",
+    mode="token",
+    context={"model": "gpt-4"}
+)
+
+print(f"Tokens: {result.total_tokens}")
+print(f"Characters: {result.char_count}")
+print(f"Reliability: {result.metadata.reliability.value}")
+```
+
+### Advanced Configuration
+
+```python
+@monitor_llm(
+    operation_name="my_llm_call",
+    measurement={
+        "mode": "hybrid",
+        "prefer_tokens": True,          # Prefer token measurement
+        "fallback_enabled": True,       # Fall back to capacity if tokens fail
+        "parallel_hybrid": True,        # Run both strategies in parallel
+        "async_tokenization": True,     # Non-blocking tokenization
+        "tokenization_timeout_ms": 100  # Timeout for token counting
+    },
+    measure_text=True
+)
+async def my_llm_call(prompt: str):
+    return await llm.generate(prompt)
+```
+
+### Supported Tokenizers
+
+- **OpenAI** (gpt-4, gpt-4-turbo, gpt-4o, gpt-3.5-turbo): Uses `tiktoken` (exact)
+- **Anthropic** (claude-3-*): API-based (estimation fallback)
+- **Google** (gemini-*): API-based (estimation fallback)
+- **Meta** (llama-*): `sentencepiece` (planned)
+- **Unknown models**: 4:1 character-to-token ratio estimation
+
+### Installation
+
+```bash
+# Token measurement support
+pip install llamonitor-async[tokens]  # Includes tiktoken
+
+# Or install manually
+pip install tiktoken  # For OpenAI models
+```
+
+### When to Use Each Strategy
+
+| Use Case | Recommended Strategy | Why |
+|----------|---------------------|-----|
+| **Cost tracking** | `token` | Industry standard, billing accuracy |
+| **Performance monitoring** | `capacity` | <1ms latency, always reliable |
+| **Migration** | `hybrid` | Compare old vs new metrics |
+| **Multi-provider apps** | `auto` | Adapts to each provider |
+| **Debugging token counts** | `hybrid` | Cross-validate token counting |
+| **Unknown models** | `capacity` | Universal support |
+
+### Example: Migration from Capacity to Tokens
+
+```python
+# Week 1-2: Collect both metrics
+@monitor_llm(measurement="hybrid", measure_text=True)
+async def my_call(prompt: str):
+    return await llm.generate(prompt)
+
+# Analyze correlation in Grafana/Jupyter
+# df = pd.read_parquet("./monitoring_data/**/*.parquet")
+# df.plot.scatter(x='text_metrics.char_count', y='text_metrics.total_tokens')
+
+# Week 3+: Switch to tokens only
+@monitor_llm(measurement="token", measure_text=True)
+async def my_call(prompt: str):
+    return await llm.generate(prompt)
+```
+
+See `examples/13_measurement_strategies.py` for comprehensive examples.
 
 ## Architecture
 
@@ -335,6 +498,29 @@ config = MonitorConfig(
 
 Tables are created automatically with InnoDB engine and proper indexes.
 
+### ClickHouse (Analytics)
+
+```python
+config = MonitorConfig(
+    storage=StorageConfig(
+        backend="clickhouse",
+        connection_string="clickhouse://default:@localhost:9000/monitoring",
+        table_name="metric_events",
+        schema_name="monitoring",  # database name
+        batch_size=100
+    )
+)
+```
+
+**Optimized for:**
+- High-volume event ingestion (millions of events/sec)
+- Fast time-series analytics with native DATE partitioning
+- Percentile calculations using `quantile()` functions (P50, P95, P99)
+- Complex aggregations across large datasets
+- JSON field querying with `JSONExtractFloat()`, `JSONExtractString()`
+
+Tables use MergeTree engine with compression and are partitioned by month automatically.
+
 ## Extension Points
 
 ### 1. Custom Metric Collectors
@@ -398,6 +584,11 @@ python llmops_monitoring/examples/05_cost_calculation.py
 python llmops_monitoring/examples/06_prometheus_exporter.py
 python llmops_monitoring/examples/07_aggregation_api.py
 python llmops_monitoring/examples/08_websocket_streaming.py
+python llmops_monitoring/examples/09_clickhouse_backend.py
+python llmops_monitoring/examples/10_graphql_queries.py
+python llmops_monitoring/examples/11_anomaly_detection.py
+python llmops_monitoring/examples/12_datadog_integration.py
+python llmops_monitoring/examples/13_measurement_strategies.py
 
 # Start monitoring stack
 docker-compose up -d
@@ -492,6 +683,451 @@ ws.onmessage = (event) => {
 };
 ```
 
+## GraphQL API ✨ NEW!
+
+Flexible, strongly-typed querying with GraphQL:
+
+```python
+from llmops_monitoring import MonitorConfig
+from llmops_monitoring.api import create_api_server
+
+# GraphQL endpoint automatically enabled
+config = MonitorConfig.for_local_dev()
+app = create_api_server(config)
+
+# GraphQL Playground: http://localhost:8080/graphql
+```
+
+**Example Queries:**
+
+```graphql
+# Get summary with nested data
+query {
+  summary {
+    totalEvents
+    totalCost_usd
+    errorRate
+  }
+  operations {
+    operationName
+    count
+    p95DurationMs
+    estimatedCostUsd
+  }
+}
+
+# Query events with filters
+query {
+  events(filter: { limit: 10, errorOnly: false }) {
+    eventId
+    operationName
+    timestamp
+    durationMs
+    textMetrics {
+      charCount
+      wordCount
+    }
+  }
+}
+
+# Real-time subscription
+subscription {
+  eventStream(operationName: "my_operation") {
+    eventId
+    operationName
+    timestamp
+  }
+}
+```
+
+**Benefits:**
+- Request exactly the fields you need
+- Combine multiple queries in single request
+- Strongly typed schema with auto-completion
+- Real-time subscriptions via WebSocket
+- Interactive GraphQL Playground
+- Self-documenting API
+
+**Installation:**
+```bash
+pip install 'llamonitor-async[graphql]'
+```
+
+## ML-based Anomaly Detection ✨ NEW!
+
+Automatically detect anomalous behavior in your LLM operations:
+
+```python
+from llmops_monitoring.anomaly import AnomalyDetectionService, AnomalyResult
+
+# Define alert handler
+def alert_handler(anomaly: AnomalyResult):
+    print(f"🚨 Anomaly detected in {anomaly.operation_name}")
+    print(f"   Severity: {anomaly.severity.value}")
+    print(f"   Metric: {anomaly.metric_name}")
+    print(f"   Score: {anomaly.anomaly_score:.3f}")
+
+# Initialize service
+service = AnomalyDetectionService(alert_callback=alert_handler)
+
+# Train on historical data
+await service.train(historical_events)
+
+# Detect anomalies in new data
+anomalies = await service.detect(new_events)
+```
+
+**Detection Methods:**
+
+1. **Z-Score Detection**: Detects deviations from mean (assumes normal distribution)
+   - Best for: Latency, character counts
+   - Threshold: 3 standard deviations (configurable)
+
+2. **IQR Detection**: Interquartile range method (robust to outliers)
+   - Best for: All metrics, especially with outliers
+   - Threshold: 1.5 × IQR (configurable)
+
+3. **Error Rate Detection**: Detects unusual error patterns
+   - Best for: Catching sudden error spikes
+   - Threshold: 10% error rate (configurable)
+
+**Severity Levels:**
+- LOW (score < 0.5)
+- MEDIUM (score 0.5-0.7)
+- HIGH (score 0.7-0.9) → Alerts sent
+- CRITICAL (score ≥ 0.9) → Alerts sent
+
+**Use Cases:**
+- Detect latency spikes
+- Identify unusual output sizes
+- Catch error rate increases
+- Monitor model behavior changes
+- Alert on performance degradation
+
+**Example Output:**
+```
+🚨 ANOMALY DETECTED!
+Operation: generate_summary
+Metric: duration_ms
+Severity: HIGH
+Anomaly Score: 0.847
+Method: z_score
+Value: 2500ms (expected: 120ms ± 50ms)
+Z-score: 5.2
+```
+
+## Datadog Integration ✨ NEW!
+
+Export metrics to Datadog for centralized monitoring and alerting:
+
+```python
+from llmops_monitoring import initialize_monitoring, MonitorConfig
+from llmops_monitoring.schema.config import DatadogConfig
+
+# Configure with Datadog exporter
+config = MonitorConfig.for_local_dev()
+config.extensions["datadog"] = DatadogConfig(
+    enabled=True,
+    api_key="your-datadog-api-key",
+    app_key="your-datadog-app-key",
+    site="datadoghq.com",  # or datadoghq.eu
+    namespace="llmops"
+).model_dump()
+
+await initialize_monitoring(config)
+```
+
+**Available Metrics:**
+- `llmops.operations.count` - Operation counts by operation_name, model, type
+- `llmops.errors.count` - Error counts by operation_name, error_type
+- `llmops.operation.duration.ms` - Latency distribution (for P95/P99)
+- `llmops.characters.total` - Character counts for token estimation
+- `llmops.cost.usd` - Cost per operation
+
+**DogStatsD Support:**
+```python
+# Use DogStatsD instead of HTTP API (faster, lower latency)
+config.extensions["datadog"] = DatadogConfig(
+    enabled=True,
+    use_statsd=True,
+    statsd_host="localhost",
+    statsd_port=8125,
+    namespace="llmops"
+).model_dump()
+```
+
+**Datadog Query Examples:**
+```
+# Average latency by operation
+avg:llmops.operation.duration.ms{*} by {operation_name}
+
+# Error rate
+sum:llmops.errors.count{*}.as_rate()
+
+# Total cost by model
+sum:llmops.cost.usd{*} by {model}
+
+# P95 latency
+p95:llmops.operation.duration.ms{*} by {operation_name}
+```
+
+**Benefits:**
+- Centralized monitoring with infrastructure metrics
+- Powerful alerting and anomaly detection
+- Correlation with logs, traces, and APM
+- Pre-built dashboards and widgets
+- SLO tracking and reporting
+
+## Multi-Agent Workflow Intelligence 🔥 INNOVATIVE!
+
+**The FIRST monitoring system designed specifically for multi-agent LLM workflows.**
+
+As LLM applications evolve from single-model calls to complex multi-agent systems (LangGraph, CrewAI, AutoGen), traditional monitoring tools fall short. llamonitor-async provides deep visibility into agent interactions, handoffs, and coordination patterns.
+
+### Why This Matters
+
+Multi-agent systems are becoming the standard:
+- **Customer Support**: Classifier → Specialist → Response Generator
+- **RAG Pipelines**: Router → Multiple Retrievers → Synthesizer
+- **Agent Orchestration**: Coordinator → Task Specialists → Fallback Handlers
+- **Autonomous Systems**: Planning → Execution → Validation → Reflection
+
+But existing tools treat agents as black boxes with no visibility into:
+- Which handoffs are failing
+- Where information is being lost
+- Which agents are bottlenecks
+- How agent teams perform together
+
+### Key Capabilities
+
+#### 1. **Automatic Agent Detection**
+Identifies agents from operation traces automatically:
+```python
+from llmops_monitoring.agent import AgentDetector
+
+detector = AgentDetector()
+agents = await detector.detect_agents(events)
+
+# Automatically discovers:
+# - Agent names and roles (classifier, retriever, generator, etc.)
+# - Performance metrics (latency, success rate, invocations)
+# - Collaboration patterns
+```
+
+#### 2. **Handoff Quality Scoring**
+Evaluates agent-to-agent transitions with multi-component scoring:
+```python
+from llmops_monitoring.agent import HandoffAnalyzer
+
+analyzer = HandoffAnalyzer()
+handoffs = await analyzer.analyze_handoffs(operations, events)
+
+# Quality Score Components:
+# - Correctness (40%): Did the target agent succeed?
+# - Efficiency (30%): Was the handoff fast?
+# - Success Chain (30%): Overall workflow success
+```
+
+**Quality Levels:**
+- **EXCELLENT** (>0.9): Perfect handoff
+- **GOOD** (0.7-0.9): Working well
+- **ACCEPTABLE** (0.5-0.7): Could be improved
+- **POOR** (0.3-0.5): Needs attention
+- **FAILED** (<0.3): Critical issue
+
+#### 3. **Context Drift Detection** 🔥 **GENUINELY INNOVATIVE**
+
+Detects when information is lost as tasks pass through agent chains:
+
+```python
+from llmops_monitoring.agent import ContextDriftDetector
+
+drift_detector = ContextDriftDetector()
+drift_analyses = await drift_detector.detect_drift(operations, events)
+
+# Detects lost entities:
+# - Customer names, emails, phone numbers
+# - Order numbers, IDs, quantities
+# - Quoted text and proper nouns
+
+for analysis in drift_analyses:
+    if analysis.has_high_drift:  # >40% information loss
+        print(f"⚠️ High drift: {analysis.from_agent} → {analysis.to_agent}")
+        print(f"   Lost: {len(analysis.lost_entities)} entities")
+        for entity in analysis.lost_entities:
+            print(f"   - {entity.value} ({entity.entity_type})")
+```
+
+**Real Example:**
+```
+Input: "John Smith at john@example.com needs help with order #12345"
+         ↓ (Classifier → Knowledge Base)
+Output: "order help"  ❌ Lost: name, email, order number!
+```
+
+This catches critical bugs that would otherwise go unnoticed in production.
+
+#### 4. **Coordination Graph Building**
+
+Visualizes agent interactions as a directed graph:
+```python
+from llmops_monitoring.agent import CoordinationGraphBuilder
+
+graph_builder = CoordinationGraphBuilder()
+graph = await graph_builder.build_graph(agents, operations, handoffs, session_id)
+
+# Graph includes:
+# - Nodes: Agents with performance metrics
+# - Edges: Handoffs with quality scores
+# - Metrics: Max depth, critical path, bottlenecks
+# - Export: NetworkX, Cytoscape, D3.js formats
+
+# Export for visualization
+networkx_data = graph_builder.export_for_visualization(graph, format="networkx")
+d3_data = graph_builder.export_for_visualization(graph, format="d3")
+```
+
+#### 5. **Bottleneck Detection**
+
+Identifies performance bottlenecks in agent systems:
+```python
+from llmops_monitoring.agent import BottleneckDetector
+
+bottleneck_detector = BottleneckDetector()
+bottlenecks = await bottleneck_detector.detect_bottlenecks(
+    agents, operations, handoffs, nodes, edges
+)
+
+# Bottleneck Score Components:
+# - Utilization (30%): Traffic volume
+# - Latency (30%): Response time
+# - Failure Rate (20%): Error frequency
+# - Downstream Impact (20%): Delays to other agents
+
+for bottleneck in bottlenecks:
+    print(f"{bottleneck.severity}: {bottleneck.agent_name}")
+    print(f"  Score: {bottleneck.bottleneck_score:.2f}")
+    print(f"  P95 Latency: {bottleneck.p95_latency_ms:.0f}ms")
+    print(f"  Recommendations:")
+    for rec in bottleneck.recommendations:
+        print(f"    • {rec}")
+```
+
+#### 6. **Coalition Analytics**
+
+Identifies and evaluates agent teams:
+```python
+from llmops_monitoring.agent import CoalitionAnalyzer
+
+coalition_analyzer = CoalitionAnalyzer()
+coalitions = await coalition_analyzer.discover_coalitions(
+    agents, operations, handoffs, session_id
+)
+
+# Discovers teams that work together:
+# - Customer Support Team: Classifier + Knowledge Base + Response Generator
+# - Escalation Team: Classifier + Escalation Handler
+# - RAG Pipeline: Router + Retrievers + Synthesizer
+
+for coalition in coalitions:
+    analysis = coalition_analyzer.analyze_coalition_performance(coalition)
+    print(f"{coalition.coalition_name}")
+    print(f"  Performance: {analysis['performance_rating']}")
+    print(f"  Success Rate: {coalition.success_rate * 100:.1f}%")
+    print(f"  Avg Latency: {coalition.avg_total_latency_ms:.1f}ms")
+```
+
+### Quick Start
+
+```python
+from llmops_monitoring.agent import (
+    AgentDetector,
+    HandoffAnalyzer,
+    ContextDriftDetector,
+    CoordinationGraphBuilder,
+    BottleneckDetector,
+    CoalitionAnalyzer
+)
+
+# 1. Detect agents from your traces
+detector = AgentDetector()
+agents = await detector.detect_agents(events, auto_register=True)
+operations = await detector.detect_agent_operations(events)
+
+# 2. Analyze handoff quality
+handoff_analyzer = HandoffAnalyzer()
+handoffs = await handoff_analyzer.analyze_handoffs(operations, events)
+stats = handoff_analyzer.calculate_handoff_statistics()
+print(f"Average handoff quality: {stats['avg_quality_score']:.2f}")
+
+# 3. Detect context drift
+drift_detector = ContextDriftDetector()
+drift_analyses = await drift_detector.detect_drift(operations, events)
+high_drift = drift_detector.get_high_drift_handoffs(threshold=0.4)
+if high_drift:
+    print(f"⚠️ Found {len(high_drift)} handoffs with high drift!")
+
+# 4. Build coordination graph
+graph_builder = CoordinationGraphBuilder()
+graph = await graph_builder.build_graph(agents, operations, handoffs, session_id)
+print(f"Max depth: {graph.max_depth}, Critical path: {graph.critical_path_ms}ms")
+
+# 5. Detect bottlenecks
+bottleneck_detector = BottleneckDetector()
+bottlenecks = await bottleneck_detector.detect_bottlenecks(
+    agents, operations, handoffs, nodes, edges
+)
+
+# 6. Analyze coalitions
+coalition_analyzer = CoalitionAnalyzer()
+coalitions = await coalition_analyzer.discover_coalitions(
+    agents, operations, handoffs, session_id
+)
+```
+
+### Example Notebook
+
+See **[notebooks/03_multi_agent_intelligence.ipynb](notebooks/03_multi_agent_intelligence.ipynb)** for a complete walkthrough with:
+- Simulated multi-agent customer support workflow
+- Step-by-step analysis of all 6 capabilities
+- Real examples of context drift detection
+- Visualization export formats
+
+### Use Cases
+
+**1. Customer Support Optimization**
+- Identify low-quality handoffs between agents
+- Reduce context loss in agent chains
+- Optimize routing decisions
+
+**2. RAG Pipeline Debugging**
+- Track information flow through retrieval stages
+- Detect when critical context is dropped
+- Measure retriever → generator quality
+
+**3. Agent Orchestration Performance**
+- Find bottleneck agents slowing down workflows
+- Compare different agent team compositions
+- Optimize task allocation
+
+**4. A/B Testing Agent Architectures**
+- Compare coalition performance
+- Measure handoff quality across variants
+- Data-driven agent selection
+
+### Why This is Innovative
+
+**No other monitoring tool provides:**
+1. ✅ Agent-specific detection and profiling
+2. ✅ Handoff quality scoring with multi-component analysis
+3. ✅ Context drift detection (information loss tracking)
+4. ✅ Coordination graph with bottleneck identification
+5. ✅ Coalition discovery and performance analysis
+
+This is **genuinely novel** capability designed for the next generation of LLM applications.
+
+---
+
 ## Roadmap
 
 - [x] **MySQL backend implementation** ✅ (v0.1.1)
@@ -499,10 +1135,12 @@ ws.onmessage = (event) => {
 - [x] **Prometheus exporter** ✅ (v0.2.0)
 - [x] **Aggregation server with REST API** ✅ (v0.2.0)
 - [x] **Real-time streaming with WebSockets** ✅ (v0.2.0)
-- [ ] ClickHouse backend for analytics
-- [ ] GraphQL backend support
-- [ ] ML-based anomaly detection
-- [ ] Datadog integration
+- [x] **ClickHouse backend for analytics** ✅ (v0.3.0)
+- [x] **GraphQL backend support** ✅ (v0.3.0)
+- [x] **ML-based anomaly detection** ✅ (v0.3.0)
+- [x] **Datadog integration** ✅ (v0.3.0)
+- [x] **Pluggable measurement strategies** ✅ (v0.4.0)
+- [x] **Multi-Agent Workflow Intelligence** ✅ (v0.5.0)
 
 ## Contributing
 

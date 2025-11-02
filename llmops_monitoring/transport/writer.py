@@ -53,6 +53,7 @@ class MonitoringWriter:
         self.last_flush = datetime.utcnow()
         self._prometheus_exporter = None  # Will be initialized if configured
         self._event_broadcaster = None  # Will be initialized if configured
+        self._datadog_exporter = None  # Will be initialized if configured
 
         MonitoringWriter._instance = self
 
@@ -122,6 +123,22 @@ class MonitoringWriter:
             except Exception as e:
                 logger.error(f"Failed to initialize event broadcaster: {e}")
 
+        # Initialize Datadog exporter if configured
+        datadog_config = self.config.extensions.get("datadog")
+        if datadog_config and datadog_config.get("enabled", False):
+            try:
+                from llmops_monitoring.exporters.datadog import DatadogExporter
+                self._datadog_exporter = DatadogExporter(datadog_config)
+                await self._datadog_exporter.initialize()
+                logger.info("Datadog exporter initialized")
+            except ImportError:
+                logger.warning(
+                    "Datadog exporter requested but datadog not installed. "
+                    "Install with: pip install 'llamonitor-async[datadog]'"
+                )
+            except Exception as e:
+                logger.error(f"Failed to initialize Datadog exporter: {e}")
+
         # Start worker
         self.running = True
         self.worker_task = asyncio.create_task(self._worker())
@@ -165,6 +182,10 @@ class MonitoringWriter:
         # Shutdown Prometheus exporter
         if self._prometheus_exporter:
             await self._prometheus_exporter.shutdown()
+
+        # Shutdown Datadog exporter
+        if self._datadog_exporter:
+            await self._datadog_exporter.shutdown()
 
         logger.info("MonitoringWriter stopped")
 
@@ -244,6 +265,13 @@ class MonitoringWriter:
                 for event in self.buffer:
                     self._prometheus_exporter.record_event(event)
 
+            # Update Datadog metrics if exporter is enabled
+            if self._datadog_exporter:
+                for event in self.buffer:
+                    self._datadog_exporter.record_event(event)
+                # Submit metrics to Datadog periodically
+                await self._datadog_exporter.submit_metrics()
+
             # Broadcast events to WebSocket connections if broadcaster is enabled
             if self._event_broadcaster:
                 await self._event_broadcaster.broadcast_events(self.buffer)
@@ -276,6 +304,10 @@ class MonitoringWriter:
             from llmops_monitoring.transport.backends.mysql import MySQLBackend
             return MySQLBackend(self.config.storage)
 
+        elif backend_type == "clickhouse":
+            from llmops_monitoring.transport.backends.clickhouse import ClickHouseBackend
+            return ClickHouseBackend(self.config.storage)
+
         else:
             raise ValueError(f"Unknown backend type: {backend_type}")
 
@@ -296,6 +328,10 @@ class MonitoringWriter:
         # Include Prometheus exporter health if enabled
         if self._prometheus_exporter:
             health["prometheus"] = self._prometheus_exporter.health_check()
+
+        # Include Datadog exporter health if enabled
+        if self._datadog_exporter:
+            health["datadog"] = self._datadog_exporter.health_check()
 
         # Include WebSocket broadcaster stats if enabled
         if self._event_broadcaster:

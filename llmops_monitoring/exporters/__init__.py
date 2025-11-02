@@ -9,8 +9,15 @@ except ImportError:
     # prometheus_client not installed
     PrometheusExporter = None
 
+try:
+    from llmops_monitoring.exporters.datadog import DatadogExporter
+except ImportError:
+    # datadog not installed
+    DatadogExporter = None
+
 __all__ = [
     "MetricsExporter",
     "ExporterRegistry",
     "PrometheusExporter",
+    "DatadogExporter",
 ]

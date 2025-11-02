@@ -43,6 +43,12 @@ mysql = [
     "aiomysql>=0.2.0",
     "sqlalchemy>=2.0.0",
 ]
+clickhouse = [
+    "clickhouse-driver>=0.2.6",
+]
+tokens = [
+    "tiktoken>=0.5.0",
+]
 prometheus = [
     "prometheus-client>=0.19.0",
 ]
@@ -50,8 +56,15 @@ api = [
     "fastapi>=0.104.0",
     "uvicorn[standard]>=0.24.0",
 ]
+graphql = [
+    "strawberry-graphql[fastapi]>=0.216.0",
+]
+datadog = [
+    "datadog-api-client>=2.0.0",
+    "datadog>=0.47.0",
+]
 all = [
-    "llamonitor-async[parquet,postgres,mysql,prometheus,api]",
+    "llamonitor-async[parquet,postgres,mysql,clickhouse,tokens,prometheus,api,graphql,datadog]",
 ]
 dev = [
     "pytest>=7.0.0",

@@ -24,6 +24,7 @@ def monitor_llm(
     measure_text: Optional[Union[bool, List[str]]] = None,
     measure_images: Optional[Union[bool, List[str]]] = None,
     collectors: Optional[List[Union[str, MetricCollector]]] = None,
+    measurement: Optional[Union[str, Dict[str, Any]]] = None,
     session_id_from: Optional[str] = None,
     trace_id_from: Optional[str] = None,
     custom_attributes: Optional[Dict[str, Any]] = None,
@@ -45,6 +46,13 @@ def monitor_llm(
                      - False/None: don't collect text metrics
         measure_images: Image metrics to collect (same options as measure_text)
         collectors: Additional custom collectors to use
+        measurement: Measurement strategy configuration. Options:
+                    - None: Use default (auto mode)
+                    - "auto": Auto-select strategy based on model
+                    - "capacity": Use capacity-based measurement (chars/words/bytes)
+                    - "token": Use token-based measurement (industry standard)
+                    - "hybrid": Use both capacity and token measurements
+                    - Dict: Full configuration (e.g., {"mode": "token", "prefer_tokens": True})
         session_id_from: Kwarg name to extract session_id from
         trace_id_from: Kwarg name to extract trace_id from
         custom_attributes: Static attributes to add to all events
@@ -53,16 +61,29 @@ def monitor_llm(
     Returns:
         Decorated function that collects metrics
 
-    Example:
-        @monitor_llm(
-            operation_name="generate_response",
-            measure_text=["char_count", "word_count"],
-            measure_images=["count", "total_pixels"],
-            session_id_from="session_id",
-            custom_attributes={"model": "gpt-4"}
-        )
-        async def my_llm_call(prompt: str, session_id: str):
-            return await llm.generate(prompt)
+    Examples:
+        Basic usage:
+            @monitor_llm(operation_name="generate_response")
+            async def my_llm_call(prompt: str):
+                return await llm.generate(prompt)
+
+        With token measurement:
+            @monitor_llm(
+                operation_name="chat_completion",
+                measurement="token",
+                custom_attributes={"model": "gpt-4"}
+            )
+            async def chat(messages: list):
+                return await openai.chat(messages)
+
+        With hybrid measurement:
+            @monitor_llm(
+                operation_name="generate",
+                measurement="hybrid",
+                measure_text=True
+            )
+            async def generate(prompt: str):
+                return await model.generate(prompt)
     """
 
     def decorator(func: Callable) -> Callable:
@@ -77,7 +98,8 @@ def monitor_llm(
         collector_instances = _build_collectors(
             measure_text=measure_text,
             measure_images=measure_images,
-            custom_collectors=collectors
+            custom_collectors=collectors,
+            measurement=measurement
         )
 
         @functools.wraps(func)
@@ -92,6 +114,7 @@ def monitor_llm(
                 session_id_from=session_id_from,
                 trace_id_from=trace_id_from,
                 custom_attributes=custom_attributes or {},
+                measurement=measurement,
                 is_async=True
             )
 
@@ -107,6 +130,7 @@ def monitor_llm(
                 session_id_from=session_id_from,
                 trace_id_from=trace_id_from,
                 custom_attributes=custom_attributes or {},
+                measurement=measurement,
                 is_async=False
             ))
 
@@ -129,6 +153,7 @@ async def _monitor_execution(
     session_id_from: Optional[str],
     trace_id_from: Optional[str],
     custom_attributes: Dict[str, Any],
+    measurement: Optional[Union[str, Dict[str, Any]]],
     is_async: bool
 ) -> Any:
     """Execute function with monitoring."""
@@ -165,12 +190,18 @@ async def _monitor_execution(
             # Calculate duration
             duration_ms = (time.time() - start_time) * 1000
 
+            # Extract model from kwargs or custom_attributes for measurement context
+            model = kwargs.get("model") or custom_attributes.get("model")
+
             # Collect metrics from all collectors
             collected_metrics = {}
             context = {
                 "duration_ms": duration_ms,
                 "span_ctx": span_ctx,
-                "custom_attributes": custom_attributes
+                "custom_attributes": custom_attributes,
+                "measurement": measurement,
+                "model": model,
+                "function_args": kwargs
             }
 
             for collector in collectors:
@@ -217,7 +248,8 @@ async def _monitor_execution(
 def _build_collectors(
     measure_text: Optional[Union[bool, List[str]]],
     measure_images: Optional[Union[bool, List[str]]],
-    custom_collectors: Optional[List[Union[str, MetricCollector]]]
+    custom_collectors: Optional[List[Union[str, MetricCollector]]],
+    measurement: Optional[Union[str, Dict[str, Any]]]
 ) -> List[MetricCollector]:
     """Build list of collector instances from configuration."""
     collectors = []
@@ -225,9 +257,9 @@ def _build_collectors(
     # Add text collector
     if measure_text:
         if measure_text is True:
-            collectors.append(TextCollector())
+            collectors.append(TextCollector(measurement=measurement))
         elif isinstance(measure_text, list):
-            collectors.append(TextCollector(measure=measure_text))
+            collectors.append(TextCollector(measure=measure_text, measurement=measurement))
 
     # Add image collector
     if measure_images:

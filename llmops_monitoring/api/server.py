@@ -83,10 +83,36 @@ def create_api_server(config: Optional[MonitorConfig] = None):
     # Create FastAPI app
     app = FastAPI(
         title="LLMOps Monitoring API",
-        description="REST API for querying and aggregating LLM monitoring data",
+        description="REST and GraphQL API for querying and aggregating LLM monitoring data",
         version="1.0.0",
         lifespan=lifespan
     )
+
+    # Add GraphQL endpoint if Strawberry is available
+    try:
+        from strawberry.fastapi import GraphQLRouter
+        from llmops_monitoring.api.graphql_schema import schema
+
+        # Create GraphQL router with context
+        def get_context():
+            return {
+                "aggregation_service": get_aggregation_service()
+            }
+
+        graphql_app = GraphQLRouter(
+            schema,
+            context_getter=get_context
+        )
+
+        # Mount GraphQL routes
+        app.include_router(graphql_app, prefix="/graphql")
+        logger.info("GraphQL endpoint enabled at /graphql")
+
+    except ImportError:
+        logger.warning(
+            "Strawberry GraphQL not installed. GraphQL endpoint disabled. "
+            "Install with: pip install 'llamonitor-async[graphql]'"
+        )
 
     # Health Check Endpoint
     @app.get(

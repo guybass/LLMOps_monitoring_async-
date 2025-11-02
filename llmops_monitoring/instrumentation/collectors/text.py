@@ -4,7 +4,8 @@ Text metric collector.
 Measures various aspects of text content with flexible configuration.
 """
 
-from typing import Any, Dict, List, Optional
+import asyncio
+from typing import Any, Dict, List, Optional, Union
 
 from llmops_monitoring.instrumentation.base import MetricCollector
 from llmops_monitoring.schema.events import TextMetrics
@@ -19,6 +20,9 @@ class TextCollector(MetricCollector):
     - word_count: Total word count
     - byte_size: Size in bytes (UTF-8 encoding)
     - line_count: Number of lines
+    - input_tokens: Token count for input (when using measurement strategies)
+    - output_tokens: Token count for output (when using measurement strategies)
+    - total_tokens: Total token count (when using measurement strategies)
 
     Users can configure which metrics to collect.
     """
@@ -26,7 +30,8 @@ class TextCollector(MetricCollector):
     def __init__(
         self,
         measure: Optional[List[str]] = None,
-        text_extractor: Optional[callable] = None
+        text_extractor: Optional[callable] = None,
+        measurement: Optional[Union[str, Dict[str, Any]]] = None
     ):
         """
         Initialize text collector.
@@ -38,9 +43,18 @@ class TextCollector(MetricCollector):
             text_extractor: Custom function to extract text from result.
                            Signature: (result, args, kwargs) -> str
                            If None, uses default extraction logic.
+            measurement: Measurement strategy configuration. Options:
+                        - None: Use legacy capacity-based measurement
+                        - "auto": Auto-select strategy based on model
+                        - "capacity": Use capacity-based measurement
+                        - "token": Use token-based measurement
+                        - "hybrid": Use both capacity and token measurements
+                        - Dict: Full configuration
         """
         self.measure = measure or ["char_count", "word_count", "byte_size", "line_count"]
         self.text_extractor = text_extractor or self._default_extract_text
+        self.measurement = measurement
+        self._resolver = None
 
     def collect(
         self,
@@ -55,6 +69,21 @@ class TextCollector(MetricCollector):
         if text is None:
             return {}
 
+        # Check if we should use new measurement strategies
+        measurement_config = self.measurement
+        if context and "measurement" in context:
+            # Override with context measurement if available
+            measurement_config = context["measurement"]
+
+        if measurement_config:
+            # Use new measurement strategy system
+            return asyncio.run(self._collect_with_strategy(text, context or {}))
+        else:
+            # Legacy mode: simple capacity-based measurement
+            return self._collect_legacy(text)
+
+    def _collect_legacy(self, text: str) -> Dict[str, Any]:
+        """Legacy collection method for backward compatibility."""
         metrics = {}
 
         if "char_count" in self.measure:
@@ -70,6 +99,72 @@ class TextCollector(MetricCollector):
             metrics["line_count"] = text.count('\n') + 1
 
         return {"text_metrics": TextMetrics(**metrics)}
+
+    async def _collect_with_strategy(
+        self,
+        text: str,
+        context: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """Collect metrics using measurement strategies."""
+        try:
+            # Import here to avoid circular dependencies
+            from llmops_monitoring.measurement import MeasurementStrategyResolver
+
+            # Get or create resolver
+            if not self._resolver:
+                measurement_config = context.get("measurement", self.measurement)
+
+                # Parse measurement config
+                if isinstance(measurement_config, str):
+                    mode = measurement_config
+                    config = {}
+                elif isinstance(measurement_config, dict):
+                    mode = measurement_config.get("mode", "auto")
+                    config = measurement_config
+                else:
+                    mode = "auto"
+                    config = {}
+
+                self._resolver = MeasurementStrategyResolver(mode=mode, config=config)
+
+            # Prepare measurement context
+            measurement_context = {
+                "model": context.get("model"),
+                "custom_attributes": context.get("custom_attributes", {}),
+                "function_args": context.get("function_args", {})
+            }
+
+            # Measure text
+            result = await self._resolver.measure(text, measurement_context)
+
+            # Convert MeasurementResult to TextMetrics
+            metrics = {}
+
+            # Capacity metrics
+            if result.char_count is not None:
+                metrics["char_count"] = result.char_count
+            if result.word_count is not None:
+                metrics["word_count"] = result.word_count
+            if result.byte_size is not None:
+                metrics["byte_size"] = result.byte_size
+            if result.line_count is not None:
+                metrics["line_count"] = result.line_count
+
+            # Token metrics
+            if result.input_tokens is not None:
+                metrics["input_tokens"] = result.input_tokens
+            if result.output_tokens is not None:
+                metrics["output_tokens"] = result.output_tokens
+            if result.total_tokens is not None:
+                metrics["total_tokens"] = result.total_tokens
+
+            return {"text_metrics": TextMetrics(**metrics)}
+
+        except Exception as e:
+            # Fall back to legacy mode if strategy fails
+            import logging
+            logging.warning(f"Measurement strategy failed: {e}, falling back to legacy mode")
+            return self._collect_legacy(text)
 
     @property
     def metric_type(self) -> str:

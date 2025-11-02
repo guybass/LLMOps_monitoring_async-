@@ -5,6 +5,76 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **ClickHouse Storage Backend**: High-performance analytics backend optimized for OLAP workloads
+  - Column-oriented storage with MergeTree engine
+  - Automatic table creation with date partitioning (PARTITION BY toYYYYMM)
+  - Native quantile functions for fast percentile calculations (P50, P95, P99)
+  - JSON field extraction with JSONExtractFloat() and JSONExtractString()
+  - Optimized for high-volume event ingestion (millions of events/sec)
+  - Query backend with comprehensive aggregation methods
+  - Integration with AggregationService and MonitoringWriter
+  - Example: llmops_monitoring/examples/09_clickhouse_backend.py
+  - Optional dependency: pip install 'llamonitor-async[clickhouse]'
+
+- **GraphQL API**: Flexible, strongly-typed query interface using Strawberry GraphQL
+  - Complete GraphQL schema for all monitoring data types
+  - Query resolvers using AggregationService
+  - Real-time subscriptions for event streaming
+  - Nested queries combining multiple data sources
+  - GraphQL Playground for interactive exploration
+  - Integrated with FastAPI server at /graphql endpoint
+  - Example: llmops_monitoring/examples/10_graphql_queries.py
+  - Optional dependency: pip install 'llamonitor-async[graphql]'
+
+- **ML-based Anomaly Detection**: Statistical and ML-based anomaly detection system
+  - Z-score detector for normally distributed metrics
+  - IQR (Interquartile Range) detector robust to outliers
+  - Error rate detector for unusual error patterns
+  - Automatic baseline training on historical data
+  - Real-time anomaly detection with configurable thresholds
+  - Severity levels (LOW, MEDIUM, HIGH, CRITICAL)
+  - Alert callbacks for high-severity anomalies
+  - Anomaly deduplication across multiple detectors
+  - Example: llmops_monitoring/examples/11_anomaly_detection.py
+
+- **Datadog Integration**: Export metrics to Datadog for monitoring and alerting
+  - DatadogExporter with HTTP API and DogStatsD support
+  - Operation counts, error rates, latency distributions
+  - Character counts and cost tracking
+  - Custom tags for filtering (operation_name, model, operation_type)
+  - Configurable namespace and submission intervals
+  - Integration with MonitoringWriter flush pipeline
+  - DatadogConfig for easy configuration
+  - Example: llmops_monitoring/examples/12_datadog_integration.py
+  - Optional dependency: pip install 'llamonitor-async[datadog]'
+
+### Changed
+- Added ClickHouse to supported storage backends
+- Updated AggregationService to support ClickHouse query backend
+- Enhanced README with ClickHouse configuration and analytics examples
+- Updated FastAPI server to include GraphQL endpoint
+- Enhanced API server description to include GraphQL support
+- Added ML-based anomaly detection to features list
+- Integrated Datadog exporter with MonitoringWriter
+- Added Datadog to exporters module
+
+### Documentation
+- Added ClickHouse installation instructions
+- Added ClickHouse storage backend section with optimization details
+- Updated examples list with ClickHouse analytics example
+- Added GraphQL API section with example queries
+- Added GraphQL installation instructions
+- Updated examples list with GraphQL queries example
+- Added ML-based anomaly detection section with usage examples
+- Updated examples list with anomaly detection example
+- Updated features list to include anomaly detection
+- Added Datadog integration section with configuration examples
+- Added Datadog installation instructions
+- Updated examples list with Datadog integration example
+
 ## [0.2.0] - 2025-10-17
 
 ### Added

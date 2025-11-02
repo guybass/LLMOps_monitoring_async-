@@ -71,6 +71,11 @@ class AggregationService:
             self.query_backend = MySQLQueryBackend(self.config.storage)
             await self.query_backend.initialize()
 
+        elif backend_type == "clickhouse":
+            from llmops_monitoring.transport.backends.clickhouse_query import ClickHouseQueryBackend
+            self.query_backend = ClickHouseQueryBackend(self.config.storage)
+            await self.query_backend.initialize()
+
         else:
             raise ValueError(f"Unsupported backend type: {backend_type}")
 

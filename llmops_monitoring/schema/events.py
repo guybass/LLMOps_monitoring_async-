@@ -15,12 +15,23 @@ from pydantic import BaseModel, Field
 class TextMetrics(BaseModel):
     """Metrics for text-based content.
 
+    Supports both capacity-based metrics (chars, words, bytes) and
+    token-based metrics (input_tokens, output_tokens, total_tokens).
+
     Users can extend this via custom_metrics field.
     """
+    # Capacity-based metrics (always available)
     char_count: Optional[int] = None
     word_count: Optional[int] = None
     byte_size: Optional[int] = None
     line_count: Optional[int] = None
+
+    # Token-based metrics (provider-specific, when available)
+    input_tokens: Optional[int] = None
+    output_tokens: Optional[int] = None
+    total_tokens: Optional[int] = None
+
+    # Extensibility
     custom_metrics: Dict[str, Any] = Field(default_factory=dict)
 
     class Config:
@@ -30,6 +41,7 @@ class TextMetrics(BaseModel):
                 "word_count": 250,
                 "byte_size": 1500,
                 "line_count": 10,
+                "total_tokens": 375,
                 "custom_metrics": {"language": "en"}
             }
         }

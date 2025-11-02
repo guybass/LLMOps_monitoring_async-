@@ -1,0 +1,2278 @@
+# Specification 3: Novel Intelligence Features
+
+## 1. Overview
+
+**Goal**: Implement cutting-edge, differentiated features that make llamonitor-async not just feature-complete, but truly innovative in the LLMOps space.
+
+**Selected Features**:
+1. **Multi-Agent Workflow Intelligence Layer** - Visibility into agent interactions
+2. **Embedded Explainability Engine** - Understanding why decisions were made
+3. **Cost Optimization Recommender** - Actionable cost-saving suggestions
+4. **Privacy & Compliance Shield** - Built-in regulatory compliance
+
+---
+
+## 2. Feature 1: Multi-Agent Workflow Intelligence Layer
+
+### 2.1 Problem Statement
+
+**Current Gap**:
+- Multi-agent systems are becoming mainstream (25% of enterprises deploying)
+- Existing monitoring tools track individual operations but miss agent interactions
+- No visibility into:
+  - Which agents communicate with each other
+  - How information flows between agents
+  - Where bottlenecks occur in agent coordination
+  - Why agents make handoff decisions
+  - How agent performance degrades in chains
+
+**Impact**:
+- Debugging multi-agent systems takes 10x longer than single-agent
+- Agent coordination bugs are invisible until production
+- No way to optimize agent team composition
+- Context drift across agent chains goes undetected
+
+### 2.2 Core Concepts
+
+**Agent**: An autonomous LLM-powered entity with specific role and capabilities
+**Handoff**: When one agent transfers control to another agent
+**Coalition**: A group of agents collaborating on a task
+**Coordination Graph**: Visual representation of agent interactions
+**Context Drift**: How information degrades as it passes through agent chains
+
+### 2.3 Data Model
+
+**Agent Schema**:
+```
+Agent {
+  agent_id: UUID
+  agent_name: String
+  agent_role: String  // e.g., "classifier", "retriever", "generator"
+  agent_type: Enum ["primary", "specialist", "coordinator", "fallback"]
+  
+  // Capabilities
+  capabilities: Array<String>
+  input_schema: JSON
+  output_schema: JSON
+  
+  // Performance
+  total_invocations: Integer
+  success_rate: Float
+  avg_latency_ms: Float
+  avg_cost_usd: Decimal
+  
+  // Relationships
+  can_handoff_to: Array<UUID>  // Other agent IDs
+  reports_to: UUID  // Coordinator agent ID
+}
+
+AgentOperation {
+  operation_id: UUID
+  agent_id: UUID
+  agent_name: String
+  
+  // Parent operation (if this agent was invoked by another)
+  parent_operation_id: UUID
+  parent_agent_id: UUID
+  
+  // Handoff tracking
+  is_handoff: Boolean
+  handoff_reason: String
+  handoff_score: Float  // Quality of handoff decision (0-1)
+  
+  // Context tracking
+  input_context_hash: String
+  output_context_hash: String
+  context_similarity_to_input: Float  // Detect drift
+}
+
+AgentHandoff {
+  handoff_id: UUID
+  session_id: UUID
+  
+  // Source and target
+  from_agent_id: UUID
+  from_agent_name: String
+  from_operation_id: UUID
+  
+  to_agent_id: UUID
+  to_agent_name: String
+  to_operation_id: UUID
+  
+  // Handoff details
+  handoff_timestamp: DateTime
+  handoff_reason: String
+  handoff_decision_process: JSON  // LLM reasoning
+  
+  // Quality metrics
+  was_correct_agent: Boolean  // Evaluated post-hoc
+  handoff_efficiency: Float  // Did it resolve faster?
+  user_satisfaction: Integer  // From feedback
+  
+  // Context passed
+  context_size_bytes: Integer
+  context_summary: Text
+  context_loss: Float  // How much info was lost?
+}
+
+CoordinationGraph {
+  graph_id: UUID
+  session_id: UUID
+  created_at: DateTime
+  
+  // Graph structure
+  nodes: [
+    {
+      agent_id: UUID,
+      agent_name: String,
+      invocation_count: Integer,
+      total_latency_ms: Float,
+      position: {x: Float, y: Float}  // For visualization
+    }
+  ]
+  
+  edges: [
+    {
+      from_agent: UUID,
+      to_agent: UUID,
+      handoff_count: Integer,
+      avg_latency_ms: Float,
+      success_rate: Float
+    }
+  ]
+  
+  // Graph metrics
+  total_agents: Integer
+  total_handoffs: Integer
+  max_depth: Integer  // Longest chain
+  bottleneck_agent: UUID
+  critical_path_ms: Float
+}
+```
+
+### 2.4 Architecture
+
+**Agent Intelligence Pipeline**:
+```
+┌────────────────────────────────────────────────────────┐
+│  Application (Multi-Agent System)                      │
+│  ┌──────┐  handoff  ┌──────┐  handoff  ┌──────┐      │
+│  │Agent1│ ────────→ │Agent2│ ────────→ │Agent3│      │
+│  └──────┘           └──────┘           └──────┘      │
+└────────────────────┬───────────────────────────────────┘
+                     │ (instrumented via @monitor_agent)
+                     ▼
+┌────────────────────────────────────────────────────────┐
+│  Agent Tracking Layer                                  │
+│  - Detect agent operations                             │
+│  - Identify handoffs (parent-child relationships)      │
+│  - Track context propagation                           │
+└────────────────────┬───────────────────────────────────┘
+                     │
+                     ▼
+┌────────────────────────────────────────────────────────┐
+│  Agent Intelligence Engine                             │
+│                                                        │
+│  ┌──────────────┐  ┌──────────────┐  ┌─────────────┐ │
+│  │ Handoff      │  │ Context      │  │ Coalition   │ │
+│  │ Quality      │  │ Drift        │  │ Analyzer    │ │
+│  │ Evaluator    │  │ Detector     │  │             │ │
+│  └──────────────┘  └──────────────┘  └─────────────┘ │
+│                                                        │
+│  ┌──────────────┐  ┌──────────────┐  ┌─────────────┐ │
+│  │ Bottleneck   │  │ Graph        │  │ Recommender │ │
+│  │ Detector     │  │ Builder      │  │ Engine      │ │
+│  └──────────────┘  └──────────────┘  └─────────────┘ │
+└────────────────────┬───────────────────────────────────┘
+                     │
+                     ▼
+┌────────────────────────────────────────────────────────┐
+│  Agent Intelligence UI                                 │
+│  - Coordination graph visualization                    │
+│  - Handoff quality dashboard                           │
+│  - Context drift alerts                                │
+│  - Coalition performance comparison                    │
+│  - Agent optimization recommendations                  │
+└────────────────────────────────────────────────────────┘
+```
+
+### 2.5 Key Capabilities
+
+**1. Agent Communication Graph Visualization**
+
+**What it does**:
+- Automatically detects which agents interact
+- Builds visual graph of agent relationships
+- Shows handoff frequency, latency, success rate
+- Identifies bottleneck agents
+- Highlights circular dependencies
+
+**Graph Metrics**:
+```
+Per Edge (Agent-to-Agent):
+- Handoff count
+- Average handoff latency
+- Success rate
+- Context retention (how much info preserved)
+- User satisfaction (from feedback)
+
+Per Node (Agent):
+- Total invocations
+- Average latency
+- Success rate
+- Queue time (how long requests wait)
+- Is bottleneck? (Boolean + severity score)
+
+Whole Graph:
+- Total agents involved
+- Max chain depth
+- Critical path (longest sequence)
+- Parallelization potential
+- Estimated optimization savings
+```
+
+**Visualization Types**:
+1. **Flow Diagram**: Sankey-style showing volume of traffic
+2. **Network Graph**: Force-directed layout showing relationships
+3. **Timeline**: Temporal view of agent invocations
+4. **Heatmap**: Agent interaction frequency matrix
+
+**2. Handoff Quality Scoring**
+
+**Purpose**: Evaluate whether agents correctly hand off tasks to appropriate specialists
+
+**Handoff Quality Components**:
+```
+Handoff Quality Score = weighted_average([
+  Correctness (0.4):    Was the target agent appropriate?
+  Efficiency (0.3):     Did it resolve faster than alternatives?
+  Context Transfer (0.2): Was all necessary context passed?
+  User Satisfaction (0.1): Did it lead to good outcome?
+])
+
+Correctness Evaluation:
+Method 1: LLM-as-a-Judge
+- Prompt: "Given task {X}, was agent {Y} the right choice?"
+- Options: {Yes, No, Partial}
+- Reasoning: Required
+
+Method 2: Outcome-based
+- If task resolved successfully → Correct (tentative)
+- If required second handoff → Incorrect
+- If user negative feedback → Incorrect
+
+Efficiency Evaluation:
+- Compare latency of chosen path vs alternative paths
+- If chosen path is fastest → High efficiency
+- If significantly slower → Low efficiency
+
+Context Transfer Evaluation:
+- Compare input context to output context
+- Use embedding similarity
+- Flag if key information missing in output
+```
+
+**Auto-generated Insights**:
+```
+Example Insights:
+- "Agent A hands off to Agent B 87% of the time, but Agent C would be 30% faster"
+- "Handoffs from Classifier to Retriever have 95% correctness"
+- "Agent D is a bottleneck; consider splitting into 2 specialized agents"
+- "15% of handoffs lose critical context (user preference)"
+```
+
+**3. Context Drift Detection**
+
+**Problem**: As tasks pass through multiple agents, information degrades
+
+**Detection Method**:
+```
+For each operation in an agent chain:
+1. Extract key entities from input
+2. Extract key entities from output
+3. Compare entities:
+   - Which entities present in input but missing in output?
+   - Which new entities appeared?
+   - Did entity relationships change?
+   
+Context Retention Score = (
+  entities_preserved / total_input_entities
+)
+
+Context Drift Score = 1 - Context_Retention_Score
+
+Example:
+Input:  "User John (ID: 123) wants to book a flight from NYC to Paris for 3 people"
+Output: "Flight booking initiated from NYC to Paris"
+
+Entities Lost:
+- User name (John)
+- User ID (123)
+- Number of passengers (3)
+
+Context Retention Score: 2/5 = 0.4
+Context Drift Score: 0.6 (HIGH DRIFT!)
+```
+
+**Drift Visualization**:
+```
+Agent Chain View:
+User Query → Agent 1 → Agent 2 → Agent 3 → Final Response
+   100%        90%       75%       60%      (context retention)
+                 ↓        ↓         ↓
+           10% drift  15% drift  15% drift
+
+Alert: High drift detected in Agent 2 → Agent 3 transition
+```
+
+**Remediation Suggestions**:
+- Add context preservation instruction to prompts
+- Use structured outputs (JSON) instead of natural language
+- Implement explicit context passing protocol
+- Add checksum validation for critical fields
+
+**4. Coalition Analytics**
+
+**Purpose**: Identify which combinations of agents work best together
+
+**Coalition Definition**:
+```
+Coalition = Set of agents that collaborate on specific task types
+
+Example Coalitions:
+- Customer Support: {Classifier, KnowledgeBase, Responder}
+- Data Analysis: {Retriever, Analyzer, Visualizer}
+- Content Creation: {Researcher, Writer, Editor}
+```
+
+**Coalition Performance Metrics**:
+```
+Per Coalition:
+- Success rate
+- Average total latency (end-to-end)
+- Average total cost
+- User satisfaction
+- Handoff efficiency
+
+Comparison:
+- Coalition A vs Coalition B for same task type
+- Identify winning coalition
+- Suggest optimal team composition
+```
+
+**Coalition Optimizer**:
+```
+Input: Task type (e.g., "customer_support_refund")
+Process:
+1. Find all coalitions that handled this task
+2. Calculate success metrics for each
+3. Rank by cost-weighted performance score
+4. Output: Best coalition for this task
+
+Output:
+Best Coalition: {Classifier(GPT-4), Retriever(Embed-v3), Responder(Claude-3)}
+- Success Rate: 97%
+- Avg Latency: 2.1s
+- Avg Cost: $0.08
+- 23% better than average coalition
+```
+
+**5. Bottleneck Detection**
+
+**Identification Criteria**:
+```
+Agent is a bottleneck if:
+1. High queue time (requests waiting > 1s)
+2. Central hub (>70% of traffic passes through)
+3. Slow processing (95th percentile latency > 5s)
+4. Under-resourced (CPU/GPU utilization > 90%)
+
+Bottleneck Severity:
+- Critical: 50%+ of requests delayed by this agent
+- High: 20-50% of requests affected
+- Medium: 5-20% of requests affected
+- Low: <5% affected
+```
+
+**Visualization**:
+```
+Coordination Graph with Bottlenecks Highlighted:
+
+    ┌────────┐
+    │ Agent1 │ (green - healthy)
+    └────┬───┘
+         │
+    ┌────▼───┐
+    │ Agent2 │ (red - BOTTLENECK)
+    └────┬───┘
+         │
+    ┌────▼───┐
+    │ Agent3 │ (green - healthy)
+    └────────┘
+
+Queue visualization:
+Agent2: [█████░░░░░] 75% utilization (warning)
+```
+
+**Recommendations**:
+```
+For detected bottlenecks:
+1. Horizontal scaling: "Deploy 2 more instances of Agent2"
+2. Model optimization: "Switch to faster model (GPT-3.5 vs GPT-4)"
+3. Caching: "Enable semantic caching for Agent2 (60% hits expected)"
+4. Load balancing: "Route simple queries around Agent2"
+5. Async processing: "Make Agent2 non-blocking"
+2.6 Integration with Existing System
+Decorator Extension:
+python@monitor_agent(
+  agent_name="customer_classifier",
+  agent_role="classifier",
+  can_handoff_to=["support_specialist", "billing_agent"],
+  track_context_drift=True
+)
+async def classify_request(request: str, context: dict):
+    # Agent logic
+    return result
+
+# Handoff tracking
+@monitor_agent(agent_name="support_specialist")
+async def handle_support(request: str, context: dict):
+    # Automatically tracks that this was a handoff from classifier
+    return result
+```
+
+**Parent-Child Detection**:
+- Use trace hierarchy (existing feature)
+- Detect when one monitored operation calls another
+- Automatically classify as agent handoff
+- Build coordination graph from trace relationships
+
+### 2.7 Use Cases
+
+**Use Case 1: Debugging Slow Multi-Agent Pipeline**
+```
+Problem: User reports slow response (5s+ latency)
+
+Investigation with Agent Intelligence:
+1. View coordination graph
+2. Identify Agent B as bottleneck (4s of 5s)
+3. Drill into Agent B operations
+4. See 3.8s spent in database query
+5. Recommendation: Add caching or optimize query
+6. Result: Latency reduced to 1.2s
+```
+
+**Use Case 2: Improving Handoff Accuracy**
+```
+Problem: 20% of customer queries get wrong agent
+
+Analysis:
+1. Filter handoffs with low quality scores
+2. Review classifier agent decisions
+3. Identify pattern: "refund" queries misrouted to "technical support"
+4. Root cause: Classifier prompt doesn't mention refunds
+5. Fix: Update classifier prompt
+6. Result: Accuracy improves to 95%
+```
+
+**Use Case 3: Optimizing Agent Team Composition**
+```
+Question: What's the best agent team for "data analysis" tasks?
+
+Coalition Analyzer Output:
+Coalition A: {GPT-4, Pandas, Plotly}
+  - Success: 89%, Cost: $0.50, Latency: 12s
+  
+Coalition B: {Claude-3, Pandas, Plotly}
+  - Success: 91%, Cost: $0.25, Latency: 10s  ← BEST
+  
+Coalition C: {GPT-3.5, Pandas, Plotly}
+  - Success: 78%, Cost: $0.10, Latency: 8s
+
+Recommendation: Use Coalition B (best ROI)
+```
+
+---
+
+## 3. Feature 2: Embedded Explainability Engine
+
+### 3.1 Problem Statement
+
+**Current Gap**:
+- Monitoring shows "what happened" but not "why"
+- Debugging requires manual trace inspection
+- No way to understand why LLM made specific decision
+- Compliance requires explanation of AI decisions
+- Black-box nature makes trust difficult
+
+**Impact**:
+- Debugging takes 5-10x longer
+- Cannot satisfy regulatory requirements (EU AI Act, GDPR)
+- Hard to improve prompts (don't know what influenced output)
+- Users don't trust AI decisions without explanations
+
+### 3.2 Core Concepts
+
+**Explainability**: Ability to understand why a specific output was generated
+
+**Types of Explanations**:
+1. **Reasoning Trace**: Step-by-step thought process
+2. **Attribution**: Which inputs influenced which outputs
+3. **Counterfactual**: What would change if inputs changed
+4. **Compliance Narrative**: Human-readable audit trail
+
+### 3.3 Data Model
+
+**Explanation Schema**:
+```
+Explanation {
+  explanation_id: UUID
+  operation_id: UUID
+  
+  // Reasoning trace (if captured)
+  reasoning_steps: [
+    {
+      step_number: Integer,
+      description: Text,
+      confidence: Float,
+      supporting_evidence: Text
+    }
+  ]
+  
+  // Attribution map
+  input_attributions: [
+    {
+      input_span: {start: Integer, end: Integer},
+      input_text: Text,
+      output_span: {start: Integer, end: Integer},
+      output_text: Text,
+      attribution_score: Float,  // How much this input influenced output
+      attribution_method: String  // e.g., "attention_weights", "gradient"
+    }
+  ]
+  
+  // Counterfactuals
+  counterfactuals: [
+    {
+      change_description: Text,  // "If temperature was 0.5 instead of 1.0"
+      predicted_output_change: Text,
+      confidence: Float
+    }
+  ]
+  
+  // Compliance narrative
+  compliance_narrative: {
+    decision_summary: Text,
+    key_factors: Array<Text>,
+    potential_biases: Array<Text>,
+    confidence_level: String,
+    human_review_required: Boolean
+  }
+  
+  // Metadata
+  explanation_method: Enum ["chain_of_thought", "self_explanation", "post_hoc"]
+  generated_at: DateTime
+  generation_cost_usd: Decimal
+}
+
+ExplainabilityConfig {
+  enabled: Boolean
+  
+  // Methods to use
+  capture_reasoning: Boolean
+  generate_attributions: Boolean
+  generate_counterfactuals: Boolean
+  generate_compliance_narrative: Boolean
+  
+  // Reasoning capture
+  reasoning_prompt_template: Text
+  reasoning_model: String
+  
+  // Attribution method
+  attribution_method: Enum ["attention", "gradient", "lime", "shap"]
+  
+  // Counterfactual generation
+  counterfactual_parameters: Array<String>  // Which params to vary
+  counterfactual_count: Integer
+  
+  // Performance
+  async_generation: Boolean
+  cache_explanations: Boolean
+}
+```
+
+### 3.4 Explainability Methods
+
+**1. Chain-of-Thought Reasoning Capture**
+
+**Concept**: Ask LLM to explain its reasoning before giving final answer
+
+**Implementation**:
+```
+Original Prompt:
+"Classify this email as spam or not spam: {email_text}"
+
+Enhanced Prompt (with CoT):
+"Classify this email as spam or not spam: {email_text}
+
+First, explain your reasoning step by step:
+1. What indicators suggest spam?
+2. What indicates it's legitimate?
+3. What is the strongest evidence?
+
+Then provide your classification."
+
+Response Format:
+{
+  "reasoning": [
+    "1. Spam indicators: Generic greeting, suspicious link, urgency",
+    "2. Legitimate indicators: Known sender domain, proper grammar",
+    "3. Strongest evidence: Sender domain matches company email"
+  ],
+  "classification": "not_spam",
+  "confidence": 0.85
+}
+```
+
+**Storage**:
+- Extract reasoning steps from response
+- Store in Explanation table
+- Link to operation
+
+**2. Input-Output Attribution**
+
+**Concept**: Map which parts of input influenced which parts of output
+
+**Method 1: Attention-Based (for Transformer models)**
+```
+Process:
+1. Get attention weights from model (if available)
+2. Aggregate across layers and heads
+3. Compute input-output attribution scores
+4. Store top attributions
+
+Example Output:
+Input: "Book a flight from New York to London for 2 passengers"
+Output: "I've found flights from NYC to LHR for 2 travelers..."
+
+Attributions:
+- "New York" → "NYC" (score: 0.95)
+- "London" → "LHR" (score: 0.93)
+- "2 passengers" → "2 travelers" (score: 0.87)
+- "Book" → "I've found flights" (score: 0.72)
+```
+
+**Method 2: SHAP (SHapley Additive exPlanations)**
+```
+Process:
+1. For each input feature, measure marginal contribution
+2. Calculate Shapley values (from game theory)
+3. Rank features by importance
+4. Store top contributors
+
+Example:
+Input features: [word1, word2, word3, ...]
+SHAP values:    [0.23,  0.15,  0.08,  ...]
+
+Top contributors:
+- word1: +0.23 (increased prob of positive sentiment)
+- word2: +0.15 (mentioned product benefit)
+```
+
+**Method 3: Perturbation-Based (LIME)**
+```
+Process:
+1. Create variations of input (perturb features)
+2. Run model on each variation
+3. Observe output changes
+4. Build local linear model of input-output relationship
+5. Identify most influential features
+
+Example:
+Original: "Great product, highly recommend!"
+Perturbed: "Good product, highly recommend!" → Sentiment: 0.85 (-0.05)
+Perturbed: "Great product, somewhat recommend!" → Sentiment: 0.75 (-0.15)
+Perturbed: "product, highly recommend!" → Sentiment: 0.80 (-0.10)
+
+Attribution: "Great" (+0.10), "highly recommend" (+0.15)
+```
+
+**3. Counterfactual Generation**
+
+**Concept**: Show what would change if inputs were different
+
+**Generation Process**:
+```
+1. Identify key parameters that could vary:
+   - temperature, max_tokens, top_p (model params)
+   - key phrases in prompt
+   - context information
+   
+2. For each parameter:
+   - Generate alternative value
+   - Predict impact on output
+   - Store counterfactual
+   
+3. Rank by impact magnitude
+
+Example Counterfactuals:
+Original: temperature=0.7, output="Paris is the capital"
+  
+1. "If temperature was 0.2 instead of 0.7"
+   → More deterministic, likely same output
+   
+2. "If temperature was 1.5 instead of 0.7"
+   → More creative, might output "Paris, the beautiful capital"
+   
+3. "If prompt mentioned 'city of lights'"
+   → Output might include "Paris, the city of lights, is the capital"
+```
+
+**Confidence Estimation**:
+- Use LLM to predict output for counterfactual
+- Compare with original output
+- Calculate similarity score
+- High similarity = low impact, low similarity = high impact
+
+**4. Compliance Narrative Generation**
+
+**Concept**: Generate human-readable explanation for audit/compliance
+
+**Template Structure**:
+```
+Compliance Narrative:
+
+Decision Summary:
+{one-sentence summary of what was decided}
+
+Key Factors:
+1. {factor 1 that influenced decision}
+2. {factor 2}
+3. {factor 3}
+
+Data Used:
+- {data source 1}
+- {data source 2}
+
+Confidence Level: {High/Medium/Low}
+{explanation of confidence}
+
+Potential Biases:
+{any detected biases in input data or model}
+
+Human Review: {Required / Not Required}
+{reasoning}
+
+Regulatory Compliance:
+- GDPR: {compliant/non-compliant + reasoning}
+- EU AI Act: {compliant/non-compliant + reasoning}
+- Industry-specific: {relevant regulations}
+```
+
+**Auto-Generation Method**:
+```
+Use LLM-as-a-judge with structured prompt:
+
+"Given this AI decision:
+Input: {input}
+Output: {output}
+Context: {context}
+
+Generate a compliance narrative that explains:
+1. What decision was made and why
+2. What data influenced the decision
+3. Potential biases or risks
+4. Whether human review is needed
+
+Format as JSON with these fields: {...}"
+```
+
+### 3.5 Architecture
+
+**Explainability Pipeline**:
+```
+LLM Operation Completes
+  ↓
+[Explainability Trigger]
+  - Check if explainability enabled for this operation
+  - Determine which methods to use
+  ↓
+┌─────────────────────────────────────────────┐
+│ Explainability Engine                       │
+│                                             │
+│ ┌────────────────┐  ┌─────────────────┐   │
+│ │ Reasoning      │  │ Attribution     │   │
+│ │ Extractor      │  │ Generator       │   │
+│ └────────────────┘  └─────────────────┘   │
+│                                             │
+│ ┌────────────────┐  ┌─────────────────┐   │
+│ │ Counterfactual │  │ Compliance      │   │
+│ │ Generator      │  │ Narrator        │   │
+│ └────────────────┘  └─────────────────┘   │
+└─────────────────┬───────────────────────────┘
+                  │
+                  ▼
+Store Explanation (linked to operation)
+                  ↓
+┌─────────────────────────────────────────────┐
+│ Explainability UI                           │
+│ - View reasoning traces                     │
+│ - Interactive attribution visualization     │
+│ - Counterfactual explorer                   │
+│ - Compliance report generator               │
+└─────────────────────────────────────────────┘
+```
+
+**Async Processing**:
+- Explainability runs in background (non-blocking)
+- Operation completes immediately
+- Explanation generated asynchronously
+- User can view when ready (or notification sent)
+
+### 3.6 UI Components
+
+**1. Reasoning Trace Viewer**
+```
+┌────────────────────────────────────────────┐
+│ Reasoning Trace                            │
+├────────────────────────────────────────────┤
+│ Decision: Approve loan application         │
+│                                            │
+│ Step 1: Analyze credit score              │
+│   • Credit score: 750 (Good)              │
+│   • Above minimum threshold (650)         │
+│   ✓ Passed                                │
+│                                            │
+│ Step 2: Check income-to-debt ratio         │
+│   • Monthly income: $5,000                │
+│   • Monthly debt: $1,200                  │
+│   • Ratio: 24% (Acceptable < 40%)         │
+│   ✓ Passed                                │
+│                                            │
+│ Step 3: Verify employment                  │
+│   • Employment: Stable (3 years)          │
+│   ✓ Passed                                │
+│                                            │
+│ Final Decision: APPROVED                   │
+│ Confidence: 92%                            │
+└────────────────────────────────────────────┘
+```
+
+**2. Attribution Heatmap**
+```
+Input Text (with attribution highlights):
+"Book a flight from [New York] to [London] for [2 passengers]"
+   ↓ (strong)    ↓ (strong)   ↓ (strong)     ↓ (strong)
+
+Output Text:
+"I've found flights from [NYC] to [LHR] for [2 travelers]"
+
+Color intensity shows attribution strength
+```
+
+**3. Counterfactual Explorer**
+```
+┌────────────────────────────────────────────┐
+│ What if...                                 │
+├────────────────────────────────────────────┤
+│ [✓] Temperature was 0.2  (instead of 0.7) │
+│     Impact: Minor change, more consistent  │
+│                                            │
+│ [✓] Prompt included "explain simply"      │
+│     Impact: Output 30% shorter            │
+│                                            │
+│ [ ] Max tokens was 500  (instead of 1000) │
+│     Impact: Likely truncation             │
+│                                            │
+│ [Apply Selected]  [Generate More]         │
+└────────────────────────────────────────────┘
+```
+
+**4. Compliance Report**
+```
+┌────────────────────────────────────────────┐
+│ Compliance Narrative                       │
+├────────────────────────────────────────────┤
+│ Decision: Loan application approved        │
+│                                            │
+│ Key Factors:                               │
+│ 1. Credit score (750) - 40% weight        │
+│ 2. Income-debt ratio (24%) - 35% weight   │
+│ 3. Employment stability - 25% weight      │
+│                                            │
+│ Data Sources:                              │
+│ • Credit bureau API                        │
+│ • Bank statements (last 3 months)         │
+│ • Employment verification                  │
+│                                            │
+│ Potential Biases: None detected           │
+│                                            │
+│ Confidence: High (92%)                     │
+│ Human Review: Not required                 │
+│                                            │
+│ Regulatory Compliance:                     │
+│ ✓ GDPR compliant (data minimization)     │
+│ ✓ Equal Credit Opportunity Act           │
+│                                            │
+│ [Export PDF]  [Share]                     │
+└────────────────────────────────────────────┘
+```
+
+### 3.7 Performance Considerations
+
+**Explainability Overhead**:
+```
+Method Comparison:
+┌──────────────────┬──────────┬────────────┬────────┐
+│ Method           │ Latency  │ Cost       │ Quality│
+├──────────────────┼──────────┼────────────┼────────┤
+│ Chain-of-Thought │ +1.5s    │ +30%       │ High   │
+│ Attention-based  │ +50ms    │ +2%        │ Medium │
+│ SHAP/LIME        │ +500ms   │ +10%       │ High   │
+│ Counterfactuals  │ +2s      │ +50%       │ Medium │
+│ Compliance Narr. │ +1s      │ +20%       │ High   │
+└──────────────────┴──────────┴────────────┴────────┘
+
+Recommendation: Use async generation to avoid blocking
+```
+
+**Optimization Strategies**:
+1. **Selective Explainability**:
+   - Only generate for important operations
+   - Use rules: "explain if cost > $1" or "explain if error"
+   
+2. **Caching**:
+   - Cache explanations for similar inputs
+   - Reuse attributions for identical prompts
+   
+3. **Lazy Loading**:
+   - Generate basic explanation immediately
+   - Generate detailed explanation on-demand
+   
+4. **Batch Processing**:
+   - Queue explanation requests
+   - Process in batches during low-traffic periods
+
+### 3.8 Use Cases
+
+**Use Case 1: Debugging Incorrect Output**
+```
+Problem: LLM classified email as spam incorrectly
+
+Investigation:
+1. View reasoning trace
+2. See: "Step 2: Detected word 'free' - spam indicator"
+3. Attribution shows "free shipping" → spam (0.8 attribution)
+4. Ah! False positive on common legitimate phrase
+5. Fix: Update prompt to context-aware spam detection
+```
+
+**Use Case 2: Regulatory Audit**
+```
+Scenario: Financial regulator audits AI loan decisions
+
+Response:
+1. Generate compliance narratives for all decisions in period
+2. Export as PDF reports
+3. Show:
+   - Decision factors and weights
+   - Data sources used
+   - Bias checks performed
+   - Human oversight applied
+4. Pass audit with detailed paper trail
+```
+
+**Use Case 3: Improving Prompt Quality**
+```
+Goal: Make customer support responses more empathetic
+
+Process:
+1. Review attributions for recent responses
+2. Notice: "resolve your issue" has low attribution to output
+3. Counterfactual shows: Adding "I understand this is frustrating" increases empathy score
+4. Update prompt template
+5. Monitor attribution changes
+6. Result: 25% improvement in satisfaction scores
+```
+
+---
+
+## 4. Feature 3: Cost Optimization Recommender
+
+### 4.1 Problem Statement
+
+**Current Limitations**:
+- Monitoring shows costs but doesn't suggest how to reduce them
+- Users don't know which operations are most expensive
+- No visibility into optimization opportunities
+- Manual analysis required to find savings
+
+**Opportunity**:
+- 30-60% cost reduction possible through optimization
+- Most savings come from: model selection, caching, prompt optimization
+- AI can analyze patterns and recommend optimizations automatically
+
+### 4.2 Core Concepts
+
+**Cost Optimization**: Reducing LLM costs without degrading quality
+
+**Optimization Strategies**:
+1. **Model Routing**: Use cheaper models when possible
+2. **Prompt Compression**: Reduce prompt length without losing meaning
+3. **Caching**: Reuse responses for similar inputs
+4. **Batch Processing**: Group requests for volume discounts
+5. **Quality Thresholding**: Use cheaper models for low-stakes queries
+
+### 4.3 Data Model
+
+**Optimization Opportunity Schema**:
+```
+OptimizationOpportunity {
+  opportunity_id: UUID
+  organization_id: UUID
+  
+  // Identification
+  opportunity_type: Enum [
+    "model_downgrade",
+    "prompt_compression",
+    "caching_candidate",
+    "batch_processing",
+    "parameter_tuning"
+  ]
+  
+  // Target
+  target_operation_name: String
+  target_operations_count: Integer
+  
+  // Savings estimate
+  current_cost_per_operation_usd: Decimal
+  optimized_cost_per_operation_usd: Decimal
+  savings_per_operation_usd: Decimal
+  savings_percentage: Float
+  
+  // Monthly projection
+  monthly_operation_volume: Integer
+  monthly_savings_usd: Decimal
+  
+  // Recommendation
+  recommendation_text: Text
+  implementation_difficulty: Enum ["easy", "medium", "hard"]
+  implementation_steps: Array<Text>
+  
+  // Quality impact
+  estimated_quality_impact: Enum ["none", "minor", "moderate"]
+  quality_metrics_to_monitor: Array<String>
+  
+  // Status
+  status: Enum ["pending", "accepted", "rejected", "implemented"]
+  created_at: DateTime
+  reviewed_by: UUID
+  reviewed_at: DateTime
+}
+
+OptimizationExperiment {
+  experiment_id: UUID
+  opportunity_id: UUID
+  
+  // A/B test configuration
+  control_group: JSON  // Current config
+  treatment_group: JSON  // Optimized config
+  traffic_split: Float  // % to treatment
+  
+  // Results
+  control_metrics: {
+    avg_cost_usd: Decimal,
+    avg_latency_ms: Float,
+    success_rate: Float,
+    avg_rating: Float
+  }
+  
+  treatment_metrics: {
+    avg_cost_usd: Decimal,
+    avg_latency_ms: Float,
+    success_rate: Float,
+    avg_rating: Float
+  }
+  
+  // Statistical significance
+  is_significant: Boolean
+  p_value: Float
+  confidence_interval: {lower: Float, upper: Float}
+  
+  // Decision
+  winner: Enum ["control", "treatment", "inconclusive"]
+  recommendation: Text
+}
+```
+
+### 4.4 Architecture
+
+**Cost Optimization Engine**:
+```
+┌────────────────────────────────────────────┐
+│ Data Collection Layer                      │
+│ - Operation costs, latency, quality        │
+│ - Model pricing tables                     │
+│ - User feedback                            │
+└────────────────┬───────────────────────────┘
+                 │
+                 ▼
+┌────────────────────────────────────────────┐
+│ Opportunity Detection Engine               │
+│                                            │
+│ ┌──────────────────────────────────────┐  │
+│ │ Model Router Analyzer                │  │
+│ │ - Finds operations using GPT-4       │  │
+│ │ - Checks if GPT-3.5 would work       │  │
+│ │ - Estimates savings                  │  │
+│ └──────────────────────────────────────┘  │
+│                                            │
+│ ┌──────────────────────────────────────┐  │
+│ │ Prompt Optimizer                     │  │
+│ │ - Identifies verbose prompts         │  │
+│ │ - Suggests compression               │  │
+│ │ - Preserves quality                  │  │
+│ └──────────────────────────────────────┘  │
+│                                            │
+│ ┌──────────────────────────────────────┐  │
+│ │ Caching Analyzer                     │  │
+│ │ - Finds repetitive queries           │  │
+│ │ - Calculates cache hit rate          │  │
+│ │ - Estimates savings                  │  │
+│ └──────────────────────────────────────┘  │
+│                                            │
+│ ┌──────────────────────────────────────┐  │
+│ │ Parameter Tuner                      │  │
+│ │ - Analyzes temperature, max_tokens   │  │
+│ │ - Suggests optimal values            │  │
+│ │ - Reduces waste                      │  │
+│ └──────────────────────────────────────┘  │
+└────────────────┬───────────────────────────┘
+                 │
+                 ▼
+┌────────────────────────────────────────────┐
+│ Recommendation Engine                      │
+│ - Ranks opportunities by ROI               │
+│ - Generates implementation guide           │
+│ - Estimates quality impact                 │
+└────────────────┬───────────────────────────┘
+                 │
+                 ▼
+┌────────────────────────────────────────────┐
+│ A/B Testing Framework                      │
+│ - Automatically test recommendations       │
+│ - Measure quality impact                   │
+│ - Roll out winners                         │
+└────────────────┬───────────────────────────┘
+                 │
+                 ▼
+┌────────────────────────────────────────────┐
+│ Optimization Dashboard                     │
+│ - List of opportunities                    │
+│ - Savings potential                        │
+│ - One-click implementation                 │
+│ - Experiment results                       │
+└────────────────────────────────────────────┘
+```
+
+### 4.5 Optimization Detection Algorithms
+
+**1. Model Router Opportunities**
+
+**Detection Logic**:
+```
+For each operation type:
+1. Identify operations using expensive models (e.g., GPT-4)
+2. Sample random operations (n=100)
+3. Re-run with cheaper model (e.g., GPT-3.5)
+4. Compare quality:
+   - If outputs semantically similar (>95% similarity) → Downgrade candidate
+   - If quality acceptable per business rules → Downgrade candidate
+5. Calculate savings
+6. Generate recommendation
+
+Example Output:
+Opportunity: Model Downgrade for "email_classification"
+- Current: GPT-4 ($0.03 per 1K tokens)
+- Recommended: GPT-3.5-turbo ($0.001 per 1K tokens)
+- Quality impact: Minimal (96% similarity in tests)
+- Savings: $2,500/month (97% reduction)
+- Confidence: High
+```
+
+**Advanced Router Logic**:
+```
+Smart Routing Rules:
+IF query_complexity == "simple":
+  → Use GPT-3.5
+ELIF query_complexity == "moderate":
+  → Use Claude-3-Haiku
+ELIF query_complexity == "high":
+  → Use GPT-4
+ELSE:
+  → Use GPT-4o (latest)
+
+Query Complexity Scoring:
+- Token count < 100 → Simple
+- Contains technical jargon → High
+- Multi-step reasoning required → High
+- Straightforward Q&A → Simple
+```
+
+**2. Prompt Compression Opportunities**
+
+**Detection Logic**:
+```
+For operations with verbose prompts (>500 tokens):
+1. Analyze prompt structure
+2. Identify redundant sections:
+   - Repeated instructions
+   - Unnecessary examples
+   - Verbose phrasing
+3. Generate compressed version using LLM
+4. Test quality impact
+5. Calculate token savings
+
+Example:
+Original Prompt (750 tokens):
+"You are a helpful assistant. You should always be polite and professional. When answering questions, provide accurate information. If you don't know something, say so. Always check your work before responding. Make sure to..."
+
+Compressed Prompt (200 tokens):
+"You are a helpful, professional assistant. Provide accurate answers. Admit uncertainty when needed."
+
+Savings: 550 tokens per request × 10,000 requests/month = $X saved
+Quality impact: None (tested on 100 samples)
+```
+
+**Compression Techniques**:
+- Remove redundancy
+- Use abbreviations (where clear)
+- Consolidate instructions
+- Remove unnecessary examples
+- Use structured format (bullet points vs paragraphs)
+
+**3. Caching Opportunities**
+
+**Detection Logic**:
+```
+Analyze query patterns:
+1. Group operations by semantic similarity
+2. Identify clusters with >5 similar queries
+3. Calculate potential cache hit rate
+4. Estimate savings
+
+Example:
+Operation: "product_search"
+Pattern detected: 23% of queries ask about same 10 products
+Recommendation: Enable semantic caching (similarity threshold: 0.95)
+Estimated hit rate: 40%
+Savings: $800/month
+```
+
+**Cache ROI Calculator**:
+```
+Cache Savings = (
+  Operation Count × Cache Hit Rate × Cost Per Operation
+) - Cache Infrastructure Cost
+
+Example:
+- 100,000 operations/month
+- 40% cache hit rate
+- $0.01 per operation
+- Cache infrastructure: $50/month
+
+Savings = (100,000 × 0.4 × $0.01) - $50 = $350/month
+ROI: 700%
+```
+
+**4. Parameter Tuning Opportunities**
+
+**Detection Logic**:
+```
+Analyze model parameters:
+
+Temperature Analysis:
+- If temperature > 0.7 and output length consistent → Reduce to 0.5
+- Savings: Less diverse outputs = fewer tokens
+
+Max Tokens Analysis:
+- If avg output length = 200 tokens but max_tokens = 2000 → Reduce to 500
+- Savings: Prevent waste from over-allocation
+
+Top-P Analysis:
+- If diversity not needed → Use top_p = 0.9 instead of 1.0
+- Savings: Faster generation
+
+Example:
+Operation: "simple_classification"
+Issue: max_tokens=1000 but outputs average 50 tokens
+Recommendation: Set max_tokens=100
+Savings: API pricing often charges for max_tokens (varies by provider)
+4.6 Recommendation Generation
+Recommendation Template:
+json{
+  "opportunity_type": "model_downgrade",
+  "title": "Switch to GPT-3.5 for Simple Classifications",
+  "description": "Analysis shows GPT-3.5 performs identically to GPT-4 for email classification while costing 97% less.",
+  
+  "current_state": {
+    "model": "gpt-4",
+    "avg_cost_per_operation": "$0.024",
+    "monthly_operations": 50000,
+    "monthly_cost": "$1,200"
+  },
+  
+  "recommended_state": {
+    "model": "gpt-3.5-turbo",
+    "avg_cost_per_operation": "$0.0007",
+    "monthly_operations": 50000,
+    "estimated_monthly_cost": "$35"
+  },
+  
+  "savings": {
+    "per_operation": "$0.0233",
+    "percentage": "97%",
+    "monthly": "$1,165",
+    "annual": "$13,980"
+  },
+  
+  "quality_impact": {
+    "estimated": "minimal",
+    "tested_on_samples": 100,
+    "similarity_score": 0.96,
+    "metrics_to_monitor": ["success_rate", "user_rating"]
+  },
+  
+  "implementation": {
+    "difficulty": "easy",
+    "estimated_time": "5 minutes",
+    "steps": [
+      "Update model parameter from 'gpt-4' to 'gpt-3.5-turbo'",
+      "Deploy change",
+      "Monitor quality metrics for 7 days"
+    ],
+    "rollback_plan": "Single config change to revert"
+  },
+  
+  "ab_test_config": {
+    "enabled": true,
+    "traffic_split": 0.2,
+    "duration_days": 7,
+    "success_criteria": {
+      "success_rate_drop_threshold": 0.02,
+      "latency_increase_threshold": 0.1,
+      "rating_drop_threshold": 0.1
+    }
+  }
+}
+```
+
+**Prioritization Algorithm**:
+```
+Opportunity Score = (
+  Monthly Savings (weighted 50%) +
+  Ease of Implementation (weighted 30%) +
+  Confidence Level (weighted 20%)
+) × Risk Adjustment Factor
+
+Risk Adjustment:
+- High quality impact → 0.5× multiplier
+- Moderate quality impact → 0.8× multiplier
+- No quality impact → 1.0× multiplier
+
+Sort opportunities by score (highest first)
+```
+
+### 4.7 Automated A/B Testing
+
+**Test Flow**:
+```
+1. User Accepts Recommendation
+   ↓
+2. System Creates A/B Test
+   - Control: Current configuration
+   - Treatment: Optimized configuration
+   - Split: 80/20 (80% control, 20% treatment)
+   ↓
+3. Traffic Split for 7 Days
+   - Route 20% of requests to new model
+   - Collect metrics from both groups
+   ↓
+4. Statistical Analysis
+   - Compare metrics (cost, latency, quality)
+   - Calculate significance
+   ↓
+5. Decision
+   - If treatment wins → Roll out to 100%
+   - If inconclusive → Extend test
+   - If treatment loses → Reject optimization
+   ↓
+6. Notification
+   - Alert user of results
+   - Provide detailed report
+```
+
+**Success Criteria**:
+```
+Treatment is successful if:
+1. Cost reduced by >20% (primary goal)
+AND
+2. Quality metrics acceptable:
+   - Success rate drop < 2%
+   - Latency increase < 10%
+   - User rating drop < 0.1 stars
+AND
+3. Statistically significant (p < 0.05)
+```
+
+### 4.8 Dashboard UI
+
+**Optimization Dashboard**:
+```
+┌────────────────────────────────────────────────────────┐
+│ Cost Optimization                [Refresh]  [Settings] │
+├────────────────────────────────────────────────────────┤
+│                                                        │
+│  💰 Total Savings Potential: $4,523/month             │
+│                                                        │
+│  ┌──────────────────────────────────────────────────┐│
+│  │ Top Opportunities                                 ││
+│  ├──────────────────────────────────────────────────┤│
+│  │ 1. Switch to GPT-3.5 for Email Classification   ││
+│  │    💵 $1,165/month   ⚡ Easy   ✓ No quality impact││
+│  │    [View Details]  [Accept]  [Run A/B Test]     ││
+│  ├──────────────────────────────────────────────────┤│
+│  │ 2. Enable Caching for Product Search            ││
+│  │    💵 $800/month   ⚡ Easy   ✓ No quality impact  ││
+│  │    [View Details]  [Accept]  [Run A/B Test]     ││
+│  ├──────────────────────────────────────────────────┤│
+│  │ 3. Compress Verbose Prompts                      ││
+│  │    💵 $450/month   ⚡ Medium   ⚠️ Minor impact    ││
+│  │    [View Details]  [Accept]  [Run A/B Test]     ││
+│  └──────────────────────────────────────────────────┘│
+│                                                        │
+│  ┌──────────────────────────────────────────────────┐│
+│  │ Active A/B Tests                                  ││
+│  ├──────────────────────────────────────────────────┤│
+│  │ Test: GPT-3.5 vs GPT-4 for Classifications      ││
+│  │ Progress: Day 3 of 7                             ││
+│  │ Treatment leading by 97% cost reduction          ││
+│  │ Quality: No significant difference               ││
+│  │ [View Results]  [End Test Early]                 ││
+│  └──────────────────────────────────────────────────┘│
+└────────────────────────────────────────────────────────┘
+```
+
+**Opportunity Detail View**:
+```
+┌────────────────────────────────────────────┐
+│ Optimization Opportunity                   │
+├────────────────────────────────────────────┤
+│ Switch to GPT-3.5-Turbo                    │
+│ For: email_classification                  │
+│                                            │
+│ Current State:                             │
+│ • Model: GPT-4                            │
+│ • Cost: $0.024 per operation              │
+│ • Volume: 50,000 ops/month                │
+│ • Monthly cost: $1,200                    │
+│                                            │
+│ Recommended State:                         │
+│ • Model: GPT-3.5-Turbo                    │
+│ • Cost: $0.0007 per operation             │
+│ • Volume: 50,000 ops/month                │
+│ • Projected cost: $35/month               │
+│                                            │
+│ Savings: $1,165/month (97% reduction)     │
+│                                            │
+│ Quality Impact: Minimal                    │
+│ • Tested on 100 samples                   │
+│ • 96% output similarity                   │
+│ • No degradation in success rate          │
+│                                            │
+│ Implementation: Easy (5 minutes)           │
+│ 1. Change model parameter                 │
+│ 2. Deploy                                  │
+│ 3. Monitor for 7 days                      │
+│                                            │
+│ [Accept & Run A/B Test]  [Reject]         │
+└────────────────────────────────────────────┘
+```
+
+### 4.9 Use Cases
+
+**Use Case 1: Reducing Classification Costs**
+```
+Scenario: Company spending $5K/month on GPT-4 for simple classifications
+
+Optimization Engine Detects:
+- 80% of classifications could use GPT-3.5
+- Quality testing shows 98% accuracy maintained
+- Potential savings: $4K/month
+
+Action:
+1. User accepts recommendation
+2. System runs A/B test (7 days)
+3. Results: No quality drop, 80% cost reduction
+4. Auto-rollout to 100%
+5. Actual savings: $4.2K/month
+```
+
+**Use Case 2: Prompt Optimization**
+```
+Scenario: Verbose prompts using excessive tokens
+
+Detection:
+- Average prompt: 800 tokens
+- Analysis shows 400 tokens are redundant
+- Savings: 50% token reduction
+
+Implementation:
+1. Generate compressed prompts
+2. Test on sample (quality maintained)
+3. Gradual rollout
+4. Result: $600/month saved
+```
+
+**Use Case 3: Caching Strategy**
+```
+Scenario: Product search queries have 60% repetition
+
+Optimization:
+1. Enable semantic caching
+2. Cache similar queries (95% similarity threshold)
+3. Expected hit rate: 55%
+4. Results after 30 days:
+   - Actual hit rate: 52%
+   - Savings: $1,100/month
+   - Latency improved by 85%
+```
+
+---
+
+## 5. Feature 4: Privacy & Compliance Shield
+
+### 5.1 Problem Statement
+
+**Regulatory Landscape 2025**:
+- GDPR (EU): Strict data privacy requirements
+- EU AI Act: Transparency and explainability mandates
+- HIPAA (US Healthcare): Protected health information rules
+- CCPA (California): Consumer privacy rights
+- Industry-specific: Financial, legal, government regulations
+
+**Current Gaps**:
+- Monitoring tools don't handle PII automatically
+- No built-in compliance features
+- Manual redaction is error-prone
+- Difficult to prove compliance during audits
+- Data residency requirements hard to enforce
+
+### 5.2 Core Requirements
+
+**Functional Requirements**:
+- Automatic PII detection and redaction
+- Configurable data retention periods
+- Geographic data residency enforcement
+- Compliance mode presets (GDPR, HIPAA, etc.)
+- Right-to-be-forgotten implementation
+- Immutable audit trails
+- Access control and logging
+
+**Non-Functional Requirements**:
+- PII redaction latency < 50ms
+- Zero false negatives (never miss PII)
+- Minimal false positives (<5%)
+- Support 100M+ events with compliance
+- Audit logs tamper-proof
+
+### 5.3 Data Model
+
+**PII Detection Schema**:
+```
+PIIDetection {
+  detection_id: UUID
+  event_id: UUID
+  
+  // Detected PII
+  pii_type: Enum [
+    "email", "phone", "ssn", "credit_card",
+    "name", "address", "dob", "ip_address",
+    "medical_record", "drivers_license"
+  ]
+  
+  // Location in text
+  field_name: String  // e.g., "input_text", "output_text"
+  start_position: Integer
+  end_position: Integer
+  original_value: String  // Encrypted/hashed
+  redacted_value: String  // What replaced it
+  
+  // Detection metadata
+  confidence: Float
+  detection_method: String  // "regex", "nlp", "ml"
+  detected_at: DateTime
+  
+  // Action taken
+  action: Enum ["redact", "encrypt", "hash", "flag"]
+  can_be_recovered: Boolean  // For authorized access
+}
+
+ComplianceEvent {
+  compliance_event_id: UUID
+  event_id: UUID
+  organization_id: UUID
+  
+  // Compliance status
+  compliance_mode: Enum ["gdpr", "hipaa", "ccpa", "custom"]
+  is_compliant: Boolean
+  compliance_issues: Array<String>
+  
+  // PII handling
+  pii_detected: Boolean
+  pii_count: Integer
+  pii_types: Array<String>
+  all_pii_handled: Boolean
+  
+  // Data residency
+  data_region: String  // e.g., "eu-west", "us-east"
+  required_region: String
+  region_compliant: Boolean
+  
+  // Retention
+  retention_period_days: Integer
+  expires_at: DateTime
+  auto_delete_enabled: Boolean
+  
+  // Audit trail
+  audit_log_id: UUID
+  audit_log_hash: String  // For tamper detection
+}
+
+DataAccessLog {
+  access_log_id: UUID
+  user_id: UUID
+  user_email: String
+  
+  // What was accessed
+  resource_type: String  // "event", "session", "user_data"
+  resource_id: UUID
+  fields_accessed: Array<String>
+  
+  // Access context
+  access_timestamp: DateTime
+  access_ip: String
+  access_reason: String  // Required for sensitive data
+  access_approved_by: UUID  // For restricted access
+  
+  // Action taken
+  action: Enum ["view", "export", "modify", "delete"]
+  success: Boolean
+  
+  // Audit
+  previous_hash: String
+  current_hash: String  // Chain of hashes for immutability
+}
+```
+
+### 5.4 PII Detection Pipeline
+
+**Detection Flow**:
+```
+Event Ingestion
+  ↓
+[PII Detection Engine]
+  ↓
+┌─────────────────────────────────────┐
+│ Stage 1: Fast Regex Scan            │
+│ - Email patterns                    │
+│ - Phone numbers                     │
+│ - Credit cards                      │
+│ - SSNs                              │
+└─────────────┬───────────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────┐
+│ Stage 2: NLP Entity Recognition     │
+│ - Person names (NER)                │
+│ - Locations (addresses)             │
+│ - Organizations                     │
+│ - Dates of birth                    │
+└─────────────┬───────────────────────┘
+              │
+              ▼
+┌─────────────────────────────────────┐
+│ Stage 3: Context-Aware Detection    │
+│ - Medical terminology               │
+│ - Financial info                    │
+│ - Custom PII types                  │
+└─────────────┬───────────────────────┘
+              │
+              ▼
+[Confidence Scoring]
+  - Aggregate detections
+  - Resolve conflicts
+  - Assign confidence scores
+              │
+              ▼
+[Redaction/Encryption]
+  - Apply organization policy
+  - Redact, encrypt, or hash
+  - Store mapping (if recoverable)
+              │
+              ▼
+Store Event (with PII handled)
+```
+
+**Detection Methods**:
+
+**1. Regex Patterns**:
+```
+Email: [a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}
+Phone: \+?\d{1,3}?[-.\s]?\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}
+SSN: \d{3}-\d{2}-\d{4}
+Credit Card: \d{4}[-\s]?\d{4}[-\s]?\d{4}[-\s]?\d{4}
+IP Address: \d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}
+```
+
+**2. NLP Entity Recognition**:
+```
+Use spaCy or similar NLP library:
+- PERSON: John Smith, Dr. Johnson
+- GPE (Geo-Political Entity): New York, California
+- ORG: Microsoft, General Hospital
+- DATE: 1990-05-15, May 15th 1990
+```
+
+**3. Context-Aware Detection**:
+```
+Medical Context:
+- If text contains "diagnosis:", "patient:", "prescription:"
+- Flag following terms as PHI (Protected Health Information)
+
+Financial Context:
+- If text contains "account number:", "balance:", "transaction:"
+- Flag following numbers as sensitive
+
+Custom Rules:
+- User-defined patterns
+- Industry-specific terminology
+```
+
+### 5.5 Redaction Strategies
+
+**Redaction Options**:
+
+**1. Full Redaction** (GDPR default):
+```
+Original: "John Smith (john@example.com) called about account #12345"
+Redacted: "[NAME] ([EMAIL]) called about account #[ACCOUNT]"
+
+Cannot be recovered
+```
+
+**2. Hashing** (for deduplication):
+```
+Original: "john@example.com"
+Hashed: "user_a7b3c9d8e2f1"
+
+Consistent within organization
+Cannot reverse to original
+Can link same user across sessions
+```
+
+**3. Encryption** (for authorized recovery):
+```
+Original: "john@example.com"
+Encrypted: "ENC_abc123xyz789"
+
+Can be decrypted by authorized users
+Requires audit trail
+```
+
+**4. Partial Redaction** (for usability):
+```
+Original: "john@example.com"
+Redacted: "j***@example.com"
+
+Original: "555-123-4567"
+Redacted: "***-***-4567"
+
+Maintains some context for debugging
+5.6 Compliance Mode Presets
+GDPR Mode:
+json{
+  "pii_handling": "full_redaction",
+  "data_retention_days": 90,
+  "data_residency": "eu",
+  "right_to_be_forgotten": true,
+  "consent_tracking": true,
+  "data_minimization": true,
+  "purpose_limitation": true,
+  
+  "required_audits": [
+    "data_access_log",
+    "data_modification_log",
+    "deletion_log"
+  ],
+  
+  "user_rights": {
+    "access": true,
+    "rectification": true,
+    "erasure": true,
+    "portability": true
+  }
+}
+HIPAA Mode (Healthcare):
+json{
+  "pii_handling": "encryption",
+  "phi_detection": true,
+  "data_retention_days": 2555,
+  "data_residency": "us",
+  "access_controls": "strict",
+  "audit_trail": "comprehensive",
+  
+  "required_safeguards": [
+    "access_logging",
+    "encryption_at_rest",
+    "encryption_in_transit",
+    "user_authentication",
+    "automatic_logoff"
+  ],
+  
+  "phi_types": [
+    "patient_name",
+    "medical_record_number",
+    "diagnosis",
+    "treatment",
+    "prescription",
+    "lab_results"
+  ]
+}
+CCPA Mode (California Consumer Privacy Act):
+json{
+  "pii_handling": "hashing",
+  "data_retention_days": 365,
+  "data_residency": "us",
+  "user_rights": {
+    "know": true,
+    "delete": true,
+    "opt_out": true,
+    "non_discrimination": true
+  },
+  
+  "sale_of_data": false,
+  "disclosure_requirements": true
+}
+5.7 Data Residency Enforcement
+Regional Storage:
+json{
+  "organization_id": "org_123",
+  "primary_region": "eu-west-1",
+  "allowed_regions": ["eu-west-1", "eu-central-1"],
+  "blocked_regions": ["us-*", "asia-*"],
+  
+  "enforcement_level": "strict",
+  
+  "cross_region_replication": {
+    "enabled": false,
+    "allowed_target_regions": []
+  },
+  
+  "backup_location": "eu-west-2"
+}
+```
+
+**Enforcement Mechanism**:
+```
+On Event Ingestion:
+1. Detect user's geographic region
+2. Check against allowed_regions
+3. If not allowed → Reject with error
+4. If allowed → Route to regional storage
+5. Log compliance decision
+
+On Data Access:
+1. Verify requester's location
+2. Check against data residency rules
+3. If cross-region access → Require approval
+4. Log access with justification
+```
+
+**Regional Routing**:
+```
+Storage Backend Per Region:
+- EU: PostgreSQL in eu-west-1
+- US: PostgreSQL in us-east-1
+- Asia: PostgreSQL in asia-southeast-1
+
+Cross-region queries: Disabled by default
+Emergency access: Requires 2-factor auth + justification
+```
+
+### 5.8 Right to Be Forgotten
+
+**Deletion Pipeline**:
+```
+User Requests Deletion
+  ↓
+[Validation]
+  - Verify user identity
+  - Check if org has retention obligations
+  - Verify not under legal hold
+  ↓
+[Soft Delete] (immediate)
+  - Mark user records as "deletion_requested"
+  - Block new data collection
+  - Stop processing operations for this user
+  ↓
+[Grace Period] (e.g., 30 days)
+  - User can cancel deletion
+  - Legal hold check
+  ↓
+[Hard Delete Job]
+  - Delete from primary storage
+  - Delete from backups
+  - Anonymize in aggregates
+  - Remove from cache
+  - Delete from search indexes
+  ↓
+[Verification]
+  - Confirm all data deleted
+  - Generate deletion certificate
+  - Log completion
+  ↓
+[Notification]
+  - Email user with confirmation
+  - Provide deletion certificate
+```
+
+**Deletion Certificate**:
+```
+Deletion Certificate
+==================
+User ID: user_789
+Request Date: 2025-06-15
+Completion Date: 2025-07-15
+
+Data Deleted:
+✓ 1,247 operations
+✓ 23 sessions
+✓ 456 feedback entries
+✓ 12 cached responses
+✓ All PII instances (89 occurrences)
+
+Retained for Legal Compliance:
+- Aggregate statistics (anonymized)
+- Billing records (legal requirement, 7 years)
+
+This certificate proves complete deletion as per GDPR Article 17.
+
+Signed: llamonitor-async Compliance System
+Date: 2025-07-15 14:32:00 UTC
+```
+
+**Anonymization in Aggregates**:
+```
+Problem: User data appears in aggregate metrics
+Solution: Replace with anonymized placeholder
+
+Before Deletion:
+- user_789: 1,247 operations, $234 cost
+- Aggregate: Total users: 1,000, Total cost: $50,000
+
+After Deletion:
+- user_789 → "deleted_user_001" (anonymized)
+- Aggregate: Total users: 1,000, Total cost: $50,000 (preserved)
+
+Why: Maintains statistical validity while removing PII
+Partial Deletion (selective):
+json{
+  "deletion_scope": "selective",
+  "delete": ["name", "email", "ip_address"],
+  "anonymize": ["operation_content", "feedback_text"],
+  "retain": ["operation_count", "cost_aggregate", "timestamps"]
+}
+```
+
+### 5.9 Access Control & Audit Trails
+
+**Role-Based Access Control (RBAC)**:
+```
+Role Hierarchy:
+┌─────────────────────────────────────────┐
+│ Super Admin                             │
+│ - All permissions                       │
+│ - Access all data including PII         │
+└─────────────────┬───────────────────────┘
+                  │
+┌─────────────────▼───────────────────────┐
+│ Compliance Officer                      │
+│ - View audit logs                       │
+│ - Generate compliance reports           │
+│ - Access PII with justification         │
+└─────────────────┬───────────────────────┘
+                  │
+┌─────────────────▼───────────────────────┐
+│ Developer                               │
+│ - View operations (PII redacted)        │
+│ - Debug traces                          │
+│ - Cannot access PII                     │
+└─────────────────┬───────────────────────┘
+                  │
+┌─────────────────▼───────────────────────┐
+│ Analyst                                 │
+│ - View aggregate metrics only           │
+│ - Cannot access individual operations   │
+└─────────────────────────────────────────┘
+```
+
+**Permission Matrix**:
+```
+┌──────────────────┬───────┬────────┬───────┬─────────┐
+│ Action           │ Admin │ Compli │ Dev   │ Analyst │
+│                  │       │ ance   │       │         │
+├──────────────────┼───────┼────────┼───────┼─────────┤
+│ View PII         │ ✓     │ ✓*     │ ✗     │ ✗       │
+│ View Redacted    │ ✓     │ ✓      │ ✓     │ ✗       │
+│ View Aggregates  │ ✓     │ ✓      │ ✓     │ ✓       │
+│ Export Data      │ ✓     │ ✓*     │ ✓**   │ ✓**     │
+│ Delete Data      │ ✓     │ ✓*     │ ✗     │ ✗       │
+│ Modify Config    │ ✓     │ ✗      │ ✗     │ ✗       │
+│ View Audit Logs  │ ✓     │ ✓      │ ✓***  │ ✗       │
+└──────────────────┴───────┴────────┴───────┴─────────┘
+
+* Requires justification
+** Only redacted/aggregated data
+*** Can view own actions only
+```
+
+**Access Justification**:
+```
+For Sensitive Data Access:
+1. User requests access to PII
+2. System prompts for justification:
+   - Reason (dropdown): "debugging", "compliance audit", "user support"
+   - Description (text): Required explanation
+   - Ticket/Case ID: Optional reference
+3. System logs justification
+4. If role allows → Grant access
+5. If role restricted → Request approval from admin
+6. Time-limited access (e.g., 1 hour)
+7. All actions during session logged
+
+Example Log Entry:
+{
+  "user": "jane@company.com",
+  "role": "compliance_officer",
+  "action": "view_pii",
+  "resource": "event_abc123",
+  "justification": "GDPR data access request from user",
+  "ticket_id": "SUP-12345",
+  "approved_by": "auto_approved",
+  "access_granted_at": "2025-06-15T10:30:00Z",
+  "access_expires_at": "2025-06-15T11:30:00Z",
+  "fields_accessed": ["email", "name", "phone"]
+}
+```
+
+**Immutable Audit Trail**:
+```
+Blockchain-Inspired Chaining:
+
+Log Entry 1:
+{
+  "log_id": "log_001",
+  "timestamp": "2025-06-15T10:00:00Z",
+  "action": "create_event",
+  "user": "system",
+  "previous_hash": "0000000000",
+  "data_hash": "hash_of_log_001_data",
+  "current_hash": "sha256(previous_hash + data_hash)"
+}
+
+Log Entry 2:
+{
+  "log_id": "log_002",
+  "timestamp": "2025-06-15T10:01:00Z",
+  "action": "view_event",
+  "user": "jane@company.com",
+  "previous_hash": "hash_from_log_001",
+  "data_hash": "hash_of_log_002_data",
+  "current_hash": "sha256(previous_hash + data_hash)"
+}
+
+Tamper Detection:
+- Recalculate hash chain
+- If any hash doesn't match → Tampering detected
+- Alert security team
+- Log cannot be modified without detection
+```
+
+**Audit Log Retention**:
+```
+Retention Rules:
+- Standard operations: 1 year
+- Compliance actions: 7 years
+- Security incidents: 10 years
+- Deletion requests: Permanent
+
+Storage:
+- Primary: PostgreSQL (indexed)
+- Archive: S3 Glacier (after 90 days)
+- Backup: Immutable backups (cannot be deleted)
+
+Access:
+- Real-time: Last 90 days in database
+- Historical: Query archive (slower)
+- Emergency: All logs available within 24 hours
+```
+
+### 5.10 Use Cases
+
+**Use Case 1: GDPR Compliance for EU Customer**
+```
+Scenario: Company serves EU customers, must comply with GDPR
+
+Setup:
+1. Enable GDPR compliance mode
+2. Set data residency to EU
+3. Enable full PII redaction
+4. Set 90-day retention
+
+Result:
+✓ All EU customer data stays in EU
+✓ PII automatically redacted in all logs
+✓ User can request data export (receives within 48 hours)
+✓ User can request deletion (completed in 30 days)
+✓ Audit trail proves compliance during regulatory inspection
+```
+
+**Use Case 2: HIPAA Compliance for Healthcare**
+```
+Scenario: Healthcare provider uses LLMs for patient triage
+
+Setup:
+1. Enable HIPAA compliance mode
+2. Enable PHI detection (medical terms, diagnoses)
+3. Use encryption (not redaction) for recovery
+4. Set 7-year retention (legal requirement)
+5. Restrict access to authorized personnel only
+
+Result:
+✓ PHI automatically encrypted
+✓ Access requires justification + approval
+✓ All access logged for audit
+✓ Data retained for required period
+✓ Pass HIPAA audit with comprehensive documentation
+```
+
+**Use Case 3: Handling Data Breach**
+```
+Scenario: Unauthorized access detected
+
+Response:
+1. Alert triggered for unusual access pattern
+2. Review audit logs (immutable, cannot be tampered)
+3. Identify compromised accounts
+4. Revoke access immediately
+5. Generate incident report
+6. Notify affected users (if PII exposed)
+7. File breach report with regulators (GDPR requires within 72 hours)
+
+Audit Trail Shows:
+- Who accessed what data
+- When access occurred
+- What justification was given
+- Whether access was authorized
+- Complete timeline of events
+```
+
+**Use Case 4: Right to Be Forgotten Request**
+```
+Scenario: Customer exercises GDPR right to be forgotten
+
+Process:
+1. Customer submits deletion request through API
+2. Verification email sent (confirm identity)
+3. System initiates 30-day grace period
+4. Customer changes mind → Cancels request (day 15)
+5. Customer resubmits request
+6. Grace period expires → Hard deletion begins
+7. All data deleted (operations, sessions, PII)
+8. Aggregate stats anonymized (maintained for analytics)
+9. Deletion certificate generated and sent to customer
+10. Audit log shows complete deletion process
+
+Timeline:
+Day 0: Request submitted
+Day 0-30: Grace period (can cancel)
+Day 30: Hard deletion begins
+Day 31: Deletion complete, certificate issued
+```
+
+**Use Case 5: Compliance Audit**
+```
+Scenario: Company undergoes regulatory audit
+
+Auditor Requests:
+1. Prove data is stored in required region
+2. Show PII is protected
+3. Demonstrate user rights are respected
+4. Verify audit logs are tamper-proof
+
+Company Response:
+1. Generate compliance report (covers 12 months)
+2. Export audit logs (verified with hash chain)
+3. Show sample events with PII properly redacted
+4. Demonstrate deletion request process
+5. Provide access logs showing justified access only
+6. Show data residency configuration
+
+Result: Pass audit with "excellent compliance posture"
+```
+
+**Use Case 6: Cross-Border Data Transfer**
+```
+Scenario: US company needs to support EU customers
+
+Challenge: GDPR prohibits transferring EU data to US without safeguards
+
+Solution:
+1. Deploy llamonitor-async in EU region
+2. Enable strict data residency (EU only)
+3. Block cross-region replication
+4. US employees can view anonymized aggregates only
+5. Access to EU customer PII requires:
+   - Approval from EU compliance officer
+   - Valid business justification
+   - Time-limited access token
+
+Result:
+✓ EU data never leaves EU
+✓ US team can still analyze performance (aggregates)
+✓ Emergency access available (with strict controls)
+✓ Compliant with GDPR Article 44-49
+
+Conclusion
+These specifications provide:
+Specification 2: Essential Production Features
+
+All "table stakes" features present in mature LLMOps platforms
+Prompt management, user tracking, caching, feedback, tagging, dataset export, playground
+Transforms llamonitor-async into production-ready platform
+
+Specification 3: Novel Intelligence Features
+
+Cutting-edge capabilities that differentiate from competitors
+Multi-agent intelligence, explainability, cost optimization, compliance
+Positions llamonitor-async as intelligent LLMOps platform
+
+Together, these make llamonitor-async:
+
+Feature-complete with industry standards
+Innovative with unique intelligence features
+Enterprise-ready with compliance capabilities
+Cost-conscious with optimization recommendations
+
+Ready for implementation and market leadership in the LLMOps space.RetryClaude can make mistakes. Please double-check responses.

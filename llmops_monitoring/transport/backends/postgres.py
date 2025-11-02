@@ -12,6 +12,8 @@ import json
 from llmops_monitoring.schema.config import StorageConfig
 from llmops_monitoring.schema.events import MetricEvent
 from llmops_monitoring.transport.backends.base import StorageBackend
+from llmops_monitoring.transport.backends.postgres_agent_storage import PostgresAgentStorage
+from llmops_monitoring.transport.backends.postgres_topology_storage import PostgresTopologyStorage
 
 
 logger = logging.getLogger(__name__)
@@ -34,6 +36,8 @@ class PostgresBackend(StorageBackend):
         self.config = config
         self.pool: Optional[any] = None
         self._asyncpg_available = self._check_asyncpg()
+        self.agent_storage: Optional[PostgresAgentStorage] = None
+        self.topology_storage: Optional[PostgresTopologyStorage] = None
 
     async def initialize(self) -> None:
         """Initialize connection pool and create tables."""
@@ -55,7 +59,15 @@ class PostgresBackend(StorageBackend):
         # Create tables
         await self._create_tables()
 
-        logger.info("Initialized PostgreSQL backend")
+        # Initialize agent storage
+        self.agent_storage = PostgresAgentStorage(self.pool, self.config.schema_name)
+        await self.agent_storage.create_agent_tables()
+
+        # Initialize topology storage
+        self.topology_storage = PostgresTopologyStorage(self.pool, self.config.schema_name)
+        await self.topology_storage.create_topology_tables()
+
+        logger.info("Initialized PostgreSQL backend with agent intelligence and topology support")
 
     async def write_event(self, event: MetricEvent) -> None:
         """Write a single event to PostgreSQL."""

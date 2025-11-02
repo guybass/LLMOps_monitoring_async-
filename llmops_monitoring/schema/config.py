@@ -85,6 +85,36 @@ class WebSocketConfig(BaseModel):
         }
 
 
+class DatadogConfig(BaseModel):
+    """
+    Configuration for Datadog metrics exporter.
+
+    Extension Point: Configure Datadog integration.
+    """
+    enabled: bool = False
+    api_key: str = ""
+    app_key: str = ""
+    site: str = "datadoghq.com"  # or datadoghq.eu, us3.datadoghq.com, etc.
+    use_statsd: bool = False  # Use DogStatsD instead of HTTP API
+    statsd_host: str = "localhost"
+    statsd_port: int = 8125
+    namespace: str = "llmops"  # Metric namespace prefix
+    submission_interval: float = 10.0  # How often to submit metrics (seconds)
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "enabled": True,
+                "api_key": "your-datadog-api-key",
+                "app_key": "your-datadog-app-key",
+                "site": "datadoghq.com",
+                "use_statsd": False,
+                "namespace": "llmops",
+                "submission_interval": 10.0
+            }
+        }
+
+
 class MonitorConfig(BaseSettings):
     """
     Global configuration for the monitoring system.

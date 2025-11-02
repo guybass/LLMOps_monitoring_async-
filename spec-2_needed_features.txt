@@ -1,0 +1,366 @@
+Technical Specifications for llamonitor-asyncSpecification 1: Pluggable Measurement Strategy System1. Overview
+Goal: Allow users to seamlessly switch between capacity-based metrics (current: characters, words, bytes) and token-based metrics (industry standard), or use both simultaneously, without changing application code.Problem Statement:
+
+Current system measures text capacity (chars/words/bytes) which is unique but not industry-standard
+Most LLM providers charge by tokens, making token tracking essential for cost accuracy
+Users need flexibility to choose measurement strategy based on their needs
+Different use cases require different metrics (billing vs performance vs debugging)
+2. Architecture2.1 Strategy Pattern ImplementationMeasurementStrategy Interface:
+
+All measurement strategies implement a common interface
+Strategies are registered in a central registry
+Multiple strategies can be active simultaneously
+Each strategy produces standardized metric output
+Strategy Types:
+
+CapacityStrategy (current default)
+
+Measures: characters, words, bytes, lines
+Best for: Language-agnostic workload measurement
+
+
+
+TokenStrategy (new)
+
+Measures: tokens using provider-specific tokenizers
+Best for: Cost calculation accuracy
+
+
+
+HybridStrategy (new)
+
+Measures: both capacity AND tokens
+Best for: Comprehensive monitoring
+
+
+
+CustomStrategy (extensibility)
+
+User-defined measurement logic
+Best for: Domain-specific requirements
+
+
+2.2 Component Architecture┌─────────────────────────────────────────────────────────┐
+│          Application Code                                │
+│          @monitor_llm(measurement="auto")                │
+└─────────────────┬───────────────────────────────────────┘
+                  │
+                  ▼
+┌─────────────────────────────────────────────────────────┐
+│     MeasurementStrategyResolver                          │
+│     - Detects model/provider from context                │
+│     - Selects appropriate strategy                       │
+│     - Can execute multiple strategies in parallel        │
+└─────────────────┬───────────────────────────────────────┘
+                  │
+        ┌─────────┴─────────┬──────────────┐
+        ▼                   ▼              ▼
+┌──────────────┐  ┌──────────────┐  ┌──────────────┐
+│ Capacity     │  │ Token        │  │ Custom       │
+│ Strategy     │  │ Strategy     │  │ Strategy     │
+└──────┬───────┘  └──────┬───────┘  └──────┬───────┘
+       │                 │                  │
+       └─────────────────┴──────────────────┘
+                         │
+                         ▼
+┌─────────────────────────────────────────────────────────┐
+│          Unified Metric Output                           │
+│          {                                                │
+│            capacity_metrics: {...},                       │
+│            token_metrics: {...},                          │
+│            custom_metrics: {...}                          │
+│          }                                                │
+└─────────────────────────────────────────────────────────┘3. Data Model3.1 Enhanced Event SchemaExtended Fields:
+MetricEvent {
+  // Existing fields
+  event_id: UUID
+  timestamp: DateTime
+  operation_name: String
+  session_id: String
+  trace_id: String
+  
+  // New: Measurement Strategy Info
+  measurement_strategy: String  // "capacity", "token", "hybrid", "custom"
+  measurement_metadata: {
+    tokenizer_name: String       // e.g., "cl100k_base" for OpenAI
+    tokenizer_version: String
+    model_detected: String       // Auto-detected or user-provided
+    fallback_used: Boolean       // True if primary strategy failed
+  }
+  
+  // Enhanced Metrics Structure
+  metrics: {
+    capacity: {
+      characters: Integer
+      words: Integer
+      bytes: Integer
+      lines: Integer
+    },
+    tokens: {
+      input_tokens: Integer
+      output_tokens: Integer
+      total_tokens: Integer
+      tokenizer_used: String
+    },
+    custom: Map<String, Any>
+  }
+  
+  // Cost calculation (works with any measurement)
+  cost_details: {
+    estimated_cost_usd: Decimal
+    calculation_method: String   // "token-based" or "capacity-based"
+    pricing_source: String       // "provider_api" or "static_table"
+    confidence: Float            // 0.0-1.0
+  }
+}3.2 Configuration SchemaMeasurementConfig:
+measurement_config: {
+  default_strategy: "auto" | "capacity" | "token" | "hybrid" | "custom"
+  
+  // Auto-detection rules
+  auto_rules: [
+    {
+      condition: {model_name: "gpt-*"},
+      strategy: "token",
+      tokenizer: "cl100k_base"
+    },
+    {
+      condition: {model_name: "claude-*"},
+      strategy: "token",
+      tokenizer: "claude"
+    },
+    {
+      condition: {provider: "custom"},
+      strategy: "capacity"
+    }
+  ]
+  
+  // Tokenizer configuration
+  tokenizers: {
+    "cl100k_base": {
+      type: "tiktoken",
+      encoding: "cl100k_base",
+      cache_tokens: true
+    },
+    "claude": {
+      type: "anthropic",
+      use_official_counter: true
+    }
+  }
+  
+  // Fallback behavior
+  fallback: {
+    on_tokenizer_failure: "capacity",
+    on_unknown_model: "capacity",
+    log_fallbacks: true
+  }
+  
+  // Performance options
+  performance: {
+    async_tokenization: true,
+    tokenization_timeout_ms: 100,
+    cache_tokenization: true,
+    cache_ttl_seconds: 3600
+  }
+}4. Measurement Strategy Specifications4.1 Token StrategyTokenizer Integration:
+
+Primary Library: tiktoken (OpenAI)
+Secondary: sentencepiece (Google, Meta models)
+Fallback: Anthropic's official counter API
+Custom: User-provided tokenization function
+Token Counting Approach:
+
+Exact Counting (preferred)
+
+Use model-specific tokenizer
+Count both input and output tokens separately
+Cache tokenization results for identical strings
+
+
+
+Estimation (fallback)
+
+Use approximation algorithms (4 chars ≈ 1 token for English)
+Apply model-specific correction factors
+Flag estimates with confidence scores
+
+
+
+API-Based (for providers with count endpoints)
+
+Call provider's token counting API
+Implement rate limiting and caching
+Handle API failures gracefully
+
+
+Token Calculation Pipeline:
+Input Text
+  ↓
+[Cache Check] → Cache Hit? → Return Cached Count
+  ↓ No
+[Tokenizer Selection]
+  - Based on model name
+  - Based on provider
+  - Based on user config
+  ↓
+[Tokenization Execution]
+  - Async with timeout
+  - Error handling
+  - Fallback to estimation
+  ↓
+[Result Validation]
+  - Sanity checks (tokens < chars)
+  - Confidence scoring
+  ↓
+[Cache & Return]4.2 Hybrid StrategyDual Measurement Protocol:
+
+Execute both capacity and token measurements
+Run token counting asynchronously (non-blocking)
+Always capture capacity (fast, reliable baseline)
+Best-effort token counting (may fail, timeout, or estimate)
+Consistency Guarantees:
+
+Capacity metrics: 100% reliable, always present
+Token metrics: Best-effort, may be missing or estimated
+Both sets tagged with metadata about reliability
+Use Cases:
+
+Cost analysis (needs tokens)
+Performance debugging (needs capacity)
+Cross-model comparison (needs both)
+Migration from capacity to tokens (needs overlap period)
+5. API Design5.1 Decorator ConfigurationUser-Facing API:
+@monitor_llm(
+  operation_name="chat_completion",
+  
+  # Measurement strategy selection
+  measurement="auto",  # Options: "auto", "capacity", "token", "hybrid", "custom"
+  
+  # Model detection (helps auto-select strategy)
+  model="gpt-4",  # Can also auto-detect from function args
+  
+  # Custom tokenizer
+  tokenizer="cl100k_base",  # Override auto-detection
+  
+  # Fallback configuration
+  measurement_fallback="capacity",
+  
+  # Performance tuning
+  async_tokenization=True,
+  tokenization_timeout_ms=100
+)5.2 Global ConfigurationSystem-Wide Settings:
+MonitorConfig(
+  measurement={
+    "default_strategy": "auto",
+    "tokenizers": {...},
+    "auto_rules": [...],
+    "fallback": {...}
+  }
+)6. Implementation Considerations6.1 Performance ImpactToken Counting Overhead:
+
+Tokenization adds 5-20ms per request
+Mitigated by: async execution, caching, timeouts
+Capacity counting: <1ms (negligible)
+Caching Strategy:
+
+Cache key: hash(text + tokenizer_name)
+LRU cache with configurable size
+TTL-based expiration
+Shared cache across operations
+Async Execution:
+
+Token counting runs in background
+Never blocks main application flow
+Results written when available
+Failures logged but don't crash monitoring
+6.2 Backwards CompatibilityMigration Path:
+
+Phase 1: Both systems active (hybrid mode)
+
+All existing capacity metrics continue working
+Token metrics added alongside
+Users can compare and validate
+
+
+
+Phase 2: Token as default for known models
+
+Auto-detection prefers tokens for major providers
+Capacity remains available via config
+Clear migration guide
+
+
+
+Phase 3: Full flexibility
+
+Users choose based on needs
+Both strategies maintained long-term
+No forced migration
+
+
+Data Compatibility:
+
+Old events: Only capacity metrics present
+New events: May have capacity, tokens, or both
+Queries handle missing fields gracefully
+UI displays available metrics only
+6.3 Tokenizer ManagementSupported Tokenizers:
+Model FamilyTokenizerLibraryPriorityGPT-4, GPT-3.5cl100k_basetiktokenHighGPT-3p50k_basetiktokenMediumClaude 3claudeAnthropic APIHighLlama 2/3llamasentencepieceHighGeminigeminiGoogle APIMediumCustom/Unknownestimationbuilt-inLowTokenizer Installation:
+
+Core library: No tokenizers (keeps it lightweight)
+Optional extras: Install per provider
+Example: pip install llamonitor-async[openai-tokens]
+Automatic detection: Try to import, fallback if missing
+7. Observability & Debugging7.1 Measurement MetricsInternal Monitoring:
+
+Token counting success rate
+Tokenization latency (p50, p95, p99)
+Cache hit rate
+Fallback frequency
+Estimation confidence distribution
+User-Visible Indicators:
+
+UI badges showing measurement method ("exact tokens", "estimated", "capacity only")
+Confidence scores for estimated tokens
+Warnings when tokenizer unavailable
+Comparison views (capacity vs tokens)
+7.2 TroubleshootingDebug Mode:
+
+Log every measurement decision
+Show why a strategy was selected
+Display tokenization timing
+Highlight when fallbacks occurred
+Validation Tools:
+
+Compare token counts against provider APIs
+Flag anomalies (tokens > characters)
+Suggest tokenizer improvements
+Export measurement audit logs
+8. Documentation RequirementsUser Documentation:
+
+Migration Guide: Capacity → Token-based tracking
+Strategy Selection Guide: When to use what
+Tokenizer Setup: Per-provider installation
+Cost Accuracy: Comparing methods
+Troubleshooting: Common measurement issues
+Developer Documentation:
+
+Custom Strategy API: Implementing new measurements
+Tokenizer Integration: Adding new tokenizers
+Testing Guide: Validating measurements
+Performance Tuning: Optimization techniques
+9. Success MetricsAdoption Metrics:
+
+% of users enabling token tracking
+% of operations measured by tokens vs capacity
+Token measurement accuracy (vs provider APIs)
+Performance Metrics:
+
+Tokenization latency < 50ms (p95)
+Cache hit rate > 80%
+Async completion rate > 99%
+Zero measurement-related application crashes
+Quality Metrics:
+
+Token count accuracy within 1% of provider
+Fallback rate < 5% for supported models
+Cost estimate accuracy within 2%
